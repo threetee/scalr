@@ -11,7 +11,7 @@ begin
     gem.homepage = "http://github.com/mhodgson/scalr"
     gem.authors = ["Matt Hodgson"]
     gem.add_development_dependency "thoughtbot-shoulda", ">= 0"
-    # gem is a Gem::Specification... see http://www.rubygems.org/read/chapter/20 for additional settings
+    gem.add_dependency "activesupport", ">= 0"
   end
   Jeweler::GemcutterTasks.new
 rescue LoadError
