@@ -21,7 +21,7 @@ module Scalr
     
     def method_missing(method_id, *arguments)
       if matches_action? method_id
-        request = ScalrRequest.new(method_id, @@endpoint, @@key_id, @@access_key, @@version, arguments)
+        request = Scalr::Request.new(method_id, @@endpoint, @@key_id, @@access_key, @@version, arguments)
         return request.process!
       else
         super

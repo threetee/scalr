@@ -83,6 +83,7 @@ module Scalr
     private 
     
       def set_inputs(action, *arguments)
+        arguments ||= {}
         raise InvalidInputError.new unless arguments.is_a? Hash
         ACTIONS[action][:inputs].each do |key, value|
           raise InvalidInputError.new("Missing required input: #{key.to_s}") if value and arguments[key].nil?
