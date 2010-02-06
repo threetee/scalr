@@ -1,4 +1,4 @@
-require 'cgi'
+require 'uri'
 require 'hmac'
 require 'hmac-sha2'
 require 'base64'
@@ -64,11 +64,11 @@ module Scalr
       :decrease_min_instances_setting => 'DecreaseMinInstancesSetting'
     }
     
-    attr_accessor :inputs, :endpoint, :access_key
+    attr_accessor :inputs, :endpoint, :access_key, :signature
     
     def initialize(action, endpoint, key_id, access_key, version, *arguments)
-      set_inputs(action, arguments)
-      @inputs.merge!('Action' => ACTIONS[action.to_sym][:name], 'KeyID' => key_id, 'Version' => version, 'TimeStamp' => Time.now.iso8601)
+      set_inputs(action, arguments.flatten.first)
+      @inputs.merge!('Action' => ACTIONS[action.to_sym][:name], 'KeyID' => key_id, 'Version' => version, 'Timestamp' => Time.now.utc.iso8601)
       @endpoint = endpoint
       @access_key = access_key
     end
@@ -77,34 +77,34 @@ module Scalr
       set_signature!
       http = Net::HTTP.new(@endpoint, 443)
       http.use_ssl = true
-      response, data = http.get("/?" + query_string, nil)
+      response, data = http.get("/?" + query_string + "&Signature=#{URI.escape(@signature)}", nil)
       return Scalr::Response.new(response, data)
     end
     
-    private 
+    private
     
-      def set_inputs(action, *arguments)
-        arguments ||= {}
-        raise InvalidInputError.new unless arguments.is_a? Hash
+      def set_inputs(action, input_hash)
+        input_hash ||= {}
+        raise InvalidInputError.new unless input_hash.is_a? Hash
         ACTIONS[action][:inputs].each do |key, value|
-          raise InvalidInputError.new("Missing required input: #{key.to_s}") if value and arguments[key].nil?
+          raise InvalidInputError.new("Missing required input: #{key.to_s}") if value and input_hash[key].nil?
         end
         @inputs = {}
-        arguments.each do |key, value|
-          raise InvalidInputError.new("Unknown input: #{key.to_s}") if ACTIONS[@action][:inputs][key].nil?
-          @inputs[INPUTS[key]] = value
+        input_hash.each do |key, value|
+          raise InvalidInputError.new("Unknown input: #{key.to_s}") if ACTIONS[action][:inputs][key].nil?
+          @inputs[INPUTS[key]] = value.to_s
         end
       end
       
       def query_string
-        @inputs.sort.collect { |key, value| [CGI.escape(key.to_s), CGI.escape(value.to_s)].join('=') }.join('&')
+        @inputs.sort.collect { |key, value| [URI.escape(key.to_s), URI.escape(value.to_s)].join('=') }.join('&')
       end
       
       def set_signature!
         string_to_sign = query_string.gsub('=','').gsub('&','')
         hmac = HMAC::SHA256.new(@access_key)
         hmac.update(string_to_sign)
-        @inputs['Signature'] = Base64.encode64(hmac.digest).chomp
+        @signature = Base64.encode64(hmac.digest).chomp
       end
       
   end

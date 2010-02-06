@@ -1,7 +1,10 @@
+require 'rubygems'
 require 'active_support'
 
 require File.dirname(__FILE__) + '/scalr/response'
 require File.dirname(__FILE__) + '/scalr/request'
+require File.dirname(__FILE__) + '/scalr/core_extensions/hash'
+require File.dirname(__FILE__) + '/scalr/core_extensions/http'
 
 module Scalr
   
