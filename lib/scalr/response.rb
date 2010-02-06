@@ -3,10 +3,14 @@ require 'rexml/document'
 module Scalr
   module Response
     
-    def initialize(response, data)
-      @code = response.code
-      @message = response.message
-      @response = parse(data) if success?
+    class << self
+      
+      def initialize(response, data)
+        @code = response.code
+        @message = response.message
+        @response = parse(data) if success?
+      end
+    
     end
     
     def success?

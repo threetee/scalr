@@ -10,7 +10,6 @@ module Scalr
     class ScalrError < RuntimeError; end
     class InvalidInputError < ScalrError; end
     
-    
     ACTIONS = {
       :add_dns_zone_record => {:name => 'AddDNSZoneRecord', :inputs => {:domain_name => true, :type => true, :ttl => true, :key => true, :value => true, :priority => false, :weight => false, :port => false}},
       :execute_script => {:name => 'ExecuteScript', :inputs => {:farm_role_id => false, :instance_id => false, :farm_id => true, :script_id => true, :timeout => true, :async => true, :revision => false, :config_variables => false}},
@@ -64,12 +63,15 @@ module Scalr
       :keep_dns_zone => 'KeepDNSZone',
       :decrease_min_instances_setting => 'DecreaseMinInstancesSetting'
     }
-    
-    def initialize(action, endpoint, key_id, access_key, version, *arguments)
-      set_inputs(action, arguments)
-      @inputs.merge!('Action' => ACTIONS[action.to_sym][:name], 'KeyID' => key_id, 'Version' => version, 'TimeStamp' => Time.now.iso8601)
-      @endpoint = endpoint
-      @access_key = access_key
+    class << self
+      
+      def initialize(action, endpoint, key_id, access_key, version, *arguments)
+        set_inputs(action, arguments)
+        @inputs.merge!('Action' => ACTIONS[action.to_sym][:name], 'KeyID' => key_id, 'Version' => version, 'TimeStamp' => Time.now.iso8601)
+        @endpoint = endpoint
+        @access_key = access_key
+      end
+      
     end
     
     def process!
