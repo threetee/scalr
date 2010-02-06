@@ -12,6 +12,7 @@ begin
     gem.authors = ["Matt Hodgson"]
     gem.add_development_dependency "thoughtbot-shoulda", ">= 0"
     gem.add_dependency "activesupport", ">= 0"
+    gem.add_dependency "ruby-hmac", ">= 0.4.0"
   end
   Jeweler::GemcutterTasks.new
 rescue LoadError
