@@ -64,15 +64,13 @@ module Scalr
       :decrease_min_instances_setting => 'DecreaseMinInstancesSetting'
     }
     
-    class << self
-      
-      def initialize(action, endpoint, key_id, access_key, version, *arguments)
-        set_inputs(action, arguments)
-        @inputs.merge!('Action' => ACTIONS[action.to_sym][:name], 'KeyID' => key_id, 'Version' => version, 'TimeStamp' => Time.now.iso8601)
-        @endpoint = endpoint
-        @access_key = access_key
-      end
-      
+    attr_accessor :inputs, :endpoint, :access_key
+    
+    def initialize(action, endpoint, key_id, access_key, version, *arguments)
+      set_inputs(action, arguments)
+      @inputs.merge!('Action' => ACTIONS[action.to_sym][:name], 'KeyID' => key_id, 'Version' => version, 'TimeStamp' => Time.now.iso8601)
+      @endpoint = endpoint
+      @access_key = access_key
     end
     
     def process!
