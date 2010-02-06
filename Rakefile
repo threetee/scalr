@@ -5,8 +5,8 @@ begin
   require 'jeweler'
   Jeweler::Tasks.new do |gem|
     gem.name = "scalr"
-    gem.summary = %Q{TODO: one-line summary of your gem}
-    gem.description = %Q{TODO: longer description of your gem}
+    gem.summary = %Q{A Scalr API wrapper gem}
+    gem.description = %Q{Scalr is a cloud infrastructure management provider. This gem is for interfacing with the Scalr.net API to obtain information about your instances and farms.}
     gem.email = "mhodgson@youcastr.com"
     gem.homepage = "http://github.com/mhodgson/scalr"
     gem.authors = ["Matt Hodgson"]

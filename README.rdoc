@@ -1,6 +1,6 @@
 = scalr
 
-Description goes here.
+Scalr is a cloud infrastructure management provider. This gem is for interfacing with the Scalr.net API to obtain information about your instances and farms.
 
 == Note on Patches/Pull Requests
  
