@@ -6,7 +6,7 @@ require 'net/https'
 require 'net/http'
 
 module Scalr
-  module Request
+  class Request
     class ScalrError < RuntimeError; end
     class InvalidInputError < ScalrError; end
     
@@ -63,6 +63,7 @@ module Scalr
       :keep_dns_zone => 'KeepDNSZone',
       :decrease_min_instances_setting => 'DecreaseMinInstancesSetting'
     }
+    
     class << self
       
       def initialize(action, endpoint, key_id, access_key, version, *arguments)

@@ -1,7 +1,7 @@
 require 'rexml/document'
 
 module Scalr
-  module Response
+  class Response
     
     class << self
       
