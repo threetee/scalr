@@ -6,9 +6,7 @@ module Scalr
     def initialize(response, data)
       @code = response.code
       @message = response.message
-      if success?
-        @response = parse(data)
-      end
+      @response = parse(data) if success?
     end
     
     def success?

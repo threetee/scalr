@@ -8,8 +8,11 @@ module Scalr
   mattr_accessor :endpoint
   @@endpoint = "api.scalr.net"
   
-  mattr_accessor :api_key
-  @@api_key = nil
+  mattr_accessor :key_id
+  @@key_id = nil
+  
+  mattr_accessor :access_key
+  @@access_key = nil
   
   mattr_accessor :version
   @@version = "2009-05-07"
@@ -18,7 +21,7 @@ module Scalr
     
     def method_missing(method_id, *arguments)
       if matches_action? method_id
-        request = ScalrRequest.new(method_id, @@endpoint, @@api_key, @@version, arguments)
+        request = ScalrRequest.new(method_id, @@endpoint, @@key_id, @@access_key, @@version, arguments)
         return request.process!
       else
         super

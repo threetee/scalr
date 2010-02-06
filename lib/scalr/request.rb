@@ -65,10 +65,11 @@ module Scalr
       :decrease_min_instances_setting => 'DecreaseMinInstancesSetting'
     }
     
-    def initialize(action, endpoint, api_key, version, *arguments)
+    def initialize(action, endpoint, key_id, access_key, version, *arguments)
       set_inputs(action, arguments)
-      @inputs.merge!('Action' => ACTIONS[action.to_sym][:name], 'KeyID' => api_key, 'Version' => version, 'TimeStamp' => Time.now.iso8601)
+      @inputs.merge!('Action' => ACTIONS[action.to_sym][:name], 'KeyID' => key_id, 'Version' => version, 'TimeStamp' => Time.now.iso8601)
       @endpoint = endpoint
+      @access_key = access_key
     end
     
     def process!
@@ -99,7 +100,7 @@ module Scalr
       
       def set_signature!
         string_to_sign = query_string.gsub('=','').gsub('&','')
-        hmac = HMAC::SHA256.new(@inputs['KeyID'])
+        hmac = HMAC::SHA256.new(@access_key)
         hmac.update(string_to_sign)
         @inputs['Signature'] = Base64.encode64(hmac.digest).chomp
       end
