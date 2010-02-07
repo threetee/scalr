@@ -18,7 +18,7 @@ module Scalr
   @@access_key = nil
   
   mattr_accessor :version
-  @@version = "2009-05-07"
+  @@version = "2009-08-14"
   
   class << self
     
