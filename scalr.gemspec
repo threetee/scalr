@@ -19,6 +19,8 @@ Gem::Specification.new do |s|
   s.files = [
     ".document",
      ".gitignore",
+     "Gemfile",
+     "Gemfile.lock",
      "LICENSE",
      "README.rdoc",
      "Rakefile",
@@ -39,7 +41,7 @@ Gem::Specification.new do |s|
   s.summary = %q{A Scalr API wrapper gem}
   s.test_files = [
     "test/helper.rb",
-    "test/test_scalr.rb"
+     "test/test_scalr.rb"
   ]
 
   if s.respond_to? :specification_version then
