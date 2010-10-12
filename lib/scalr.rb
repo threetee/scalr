@@ -1,4 +1,6 @@
 require 'rubygems'
+require 'bundler'
+Bundler.setup
 require 'active_support'
 
 require File.dirname(__FILE__) + '/scalr/response'
@@ -18,7 +20,7 @@ module Scalr
   @@access_key = nil
   
   mattr_accessor :version
-  @@version = "2009-08-14"
+  @@version = "2.0.0"
   
   class << self
     
