@@ -5,7 +5,7 @@
 
 Gem::Specification.new do |s|
   s.name = %q{scalr}
-  s.version = "0.1.1"
+  s.version = "0.2.0"
 
   s.required_rubygems_version = Gem::Requirement.new(">= 0") if s.respond_to? :required_rubygems_version=
   s.authors = ["Matt Hodgson"]
@@ -39,7 +39,7 @@ Gem::Specification.new do |s|
   s.summary = %q{A Scalr API wrapper gem}
   s.test_files = [
     "test/helper.rb",
-     "test/test_scalr.rb"
+    "test/test_scalr.rb"
   ]
 
   if s.respond_to? :specification_version then

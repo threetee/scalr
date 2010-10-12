@@ -2,14 +2,9 @@
 
 Scalr is a cloud infrastructure management provider. This gem is for interfacing with the Scalr.net API to obtain information about your instances and farms.
 
+As of version 0.2.0 the Scalr gem has been updated to use the Scalr 2.0 API (thanks to threetee).
+
 == Installing Scalr
-
-First, if you haven't already:
-
-  $ gem install gemcutter
-  $ gem tumble
-
-Then
 
   $ gem install scalr
 
