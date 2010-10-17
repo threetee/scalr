@@ -1,6 +1,4 @@
 require 'rubygems'
-require 'bundler'
-Bundler.setup
 require 'active_support'
 
 require File.dirname(__FILE__) + '/scalr/response'
