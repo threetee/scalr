@@ -86,7 +86,7 @@ module Scalr
       set_signature!
       http = Net::HTTP.new(@endpoint, 443)
       http.use_ssl = true
-      response, data = http.get("/?" + query_string + "&Signature=#{URI.escape(@signature)}", nil)
+      response, data = http.get("/?" + query_string + "&Signature=#{@signature}", nil)
       return Scalr::Response.new(response, data)
     end
     
@@ -113,7 +113,7 @@ module Scalr
         string_to_sign = query_string.gsub('=','').gsub('&','')
         hmac = HMAC::SHA256.new(@access_key)
         hmac.update(string_to_sign)
-        @signature = Base64.encode64(hmac.digest).chomp
+        @signature = URI.escape(Base64.encode64(hmac.digest).chomp, Regexp.new("[^#{URI::PATTERN::UNRESERVED}]"))
       end
       
   end
