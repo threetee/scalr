@@ -20,7 +20,7 @@ Now, just initialize scalr with your api values (can be found in your system set
     Scalr.key_id = "your_key_id"
     Scalr.access_key = "your_access_key"
 
-Like most rubyist, I can't stand camel case, so you make calls to the scalr API with their underscore equivalent names and parameters:
+Like most rubyists, I can't stand camel case, so you make calls to the Scalr API with their underscore equivalent names and parameters:
 
     response = Scalr.list_dns_zone_records(:domain_name => 'domain.com')
 
