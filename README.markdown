@@ -43,6 +43,11 @@ I recommend opening up an irb session and making test calls to figure out the re
   (if you want to have your own version, that is fine but bump version in a commit by itself I can ignore when I pull)
 * Send me a pull request. Bonus points for topic branches.
 
+## Contributors
+
+* [threetee](https://github.com/threetee)
+* [jagthedrummer](https://github.com/jagthedrummer)
+
 ## Copyright
 
 Copyright (c) 2010 RedBeard Tech. See LICENSE for details.
