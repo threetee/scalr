@@ -86,7 +86,7 @@ module Scalr
       set_signature!
       http = Net::HTTP.new(@endpoint, 443)
       http.use_ssl = true
-      response, data = http.get("/?" + query_string + "&Signature=#{@signature}", nil)
+      response, data = http.get("/?" + query_string + "&Signature=#{@signature}", {})
       return Scalr::Response.new(response, data)
     end
     
