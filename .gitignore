@@ -22,3 +22,7 @@ rdoc
 pkg
 
 ## PROJECT::SPECIFIC
+
+# CMW: IDEA stuff
+.idea/*
+*.iml
