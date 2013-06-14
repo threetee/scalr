@@ -7,7 +7,11 @@ require File.dirname(__FILE__) + '/scalr/core_extensions/hash'
 require File.dirname(__FILE__) + '/scalr/core_extensions/http'
 
 module Scalr
-  
+
+  # set to a debugging output stream for HTTP request/response, nil for none
+  mattr_accessor :debug
+  @@debug = nil
+
   mattr_accessor :endpoint
   @@endpoint = "api.scalr.net"
   

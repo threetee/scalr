@@ -20,9 +20,10 @@ module Scalr
       :events_list => {:name => 'EventsList', :inputs => {:farm_id => true, :start_from => false, :records_limit => false}},
       :farm_get_details => {:name => 'FarmGetDetails', :inputs => {:farm_id => true}},
       :farm_get_stats => {:name => 'FarmGetStats', :inputs => {:farm_id => true, :date => false}},
-      :farms_list => {:name => 'FarmsList', :inputs => {}},
-      :farm_terminate => {:name => 'FarmTerminate', :inputs => {:farm_id => true, :keep_ebs => true, :keep_eip => false, :keep_dns_zone => false}},
       :farm_launch => {:name => 'FarmLaunch', :inputs => {:farm_id => true}},
+      :farm_terminate => {:name => 'FarmTerminate', :inputs => {:farm_id => true, :keep_ebs => true, :keep_eip => false, :keep_dns_zone => false}},
+      :farms_list => {:name => 'FarmsList', :inputs => {}},
+      :global_variables_list => {:name => 'GlobalVariablesList', :inputs => {:farm_id => false, :role_id => false, :farm_role_id => false, :server_id => false}},
       :logs_list => {:name => 'LogsList', :inputs => {:farm_id => true, :server_id => true, :start_from => false, :records_limit => false}},
       :roles_list => {:name => 'RolesList', :inputs => {:platform => false, :name => false, :prefix => false, :image_id => false}},
       :script_execute => {:name => 'ScriptExecute', :inputs => {:farm_role_id => false, :server_id => false, :farm_id => true, :script_id => true, :timeout => true, :async => true, :revision => false, :config_variables => false}},
@@ -85,9 +86,10 @@ module Scalr
     def process!
       set_signature!
       http = Net::HTTP.new(@endpoint, 443)
+      http.set_debug_output(Scalr.debug)  if Scalr.debug
       http.use_ssl = true
-      response, data = http.get("/?" + query_string + "&Signature=#{@signature}", {})
-      return Scalr::Response.new(response, data)
+      response = http.get("/?" + query_string + "&Signature=#{@signature}", {})
+      return Scalr::Response.new(response, response.body)
     end
     
     private
