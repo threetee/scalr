@@ -8,13 +8,13 @@ Scalr.version = '2.3.0'
 
 response = Scalr.farms_list
 if response.successful_request?
-  response.value[:farmslistresponse][:farmset][:item].each do |farm_info|
+  response.content.each do |farm_info|
     puts "Farm: #{farm_info[:name]} (ID: #{farm_info[:id]})"
     variable_response = Scalr.global_variables_list(farm_id: farm_info[:id])
-    if variable_response.value[:globalvariableslistresponse].nil? || variable_response.value[:globalvariableslistresponse][:variableset].nil?
+    if variable_response.content.nil? || variable_response.content.empty?
       puts '  NO VARIABLES FOUND'
     else
-      variable_response.value[:globalvariableslistresponse][:variableset][:item].each do |pair|
+      variable_response.content.each do |pair|
         puts sprintf('  %-25s: %s', pair[:name], pair[:value])
       end
     end

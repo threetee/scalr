@@ -9,8 +9,53 @@ module Scalr
   class Request
     class ScalrError < RuntimeError; end
     class InvalidInputError < ScalrError; end
-    
+
+    # Each entry describes an API call we can consume.
+    #  - :inputs - describes the data we can/must send
+    #  - :outputs - describes some shortcuts for the XML consumed; we'll pop the transactionid into the
+    #               response object, then assign the value out of the path-like reference. Most of the
+    #               references describe either a single value (e.g., a status or return value) or a
+    #               list of records
+    #
+    # Some examples:
+    #
+    # 1. :outputs => { :path => 'BundleTaskStatus' }
+    #
+    #  <BundleTaskGetStatusResponse>
+    #    <TransactionID>38cb90b8-c44a-42a4-a24a-c7f19a33de2c</TransactionID>
+    #    <BundleTaskStatus>creating-role</BundleTaskStatus>
+    #  </BundleTaskGetStatusResponse>
+    #
+    # response.content => 'creating-role'
+    #
+    # 2. :outputs => { :path => 'FarmSet@Item' }
+    #
+    # <ListFarmsResponse>
+    #   <TransactionID>4df7f431-927a-43e3-8ccf-bec323f18f9a</TransactionID>
+    #   <FarmSet>
+    #     <Item>
+    #       <ID>123</ID>
+    #       <Name>test-farm-1</Name>
+    #       <Comments/>
+    #       <Status>0</Status>
+    #     </Item>
+    #     <Item>
+    #       <ID>321</ID>
+    #       <Name>test-farm-2</Name>
+    #       <Comments/>
+    #       <Status>1</Status>
+    #     </Item>
+    #   </FarmSet>
+    # </ListFarmsResponse>
+    #
+    # response.content => [{id: '123', name: 'test-farm-1', comments: nil, status: '0' },
+    #                      {id: '321', name: 'test-farm-2', comments: nil, status: '1' }]
+
+
     ACTIONS = {
+      :apache_vhost_create => {:name => 'ApacheVhostCreate',
+                               :inputs => {:domain_name => true, :farm_id => true, :farm_role_id => true, :document_root_dir => true, :enable_ssl => true, :ssl_private_key => false, :ssl_certificate => false},
+                               :outputs => { :path => 'result' } },
       :bundle_task_get_status => {:name => 'BundleTaskGetStatus', :inputs => {:bundle_task_id => true}},
       :dns_zone_create => {:name => 'DNSZoneCreate', :inputs => {:domain_name => true, :farm_id => false, :farm_role_id => false}},
       :dns_zone_record_add => {:name => 'DNSZoneRecordAdd', :inputs => {:zone_name => true, :type => true, :ttl => true, :name => true, :value => true, :priority => false, :weight => false, :port => false}},
@@ -22,8 +67,12 @@ module Scalr
       :farm_get_stats => {:name => 'FarmGetStats', :inputs => {:farm_id => true, :date => false}},
       :farm_launch => {:name => 'FarmLaunch', :inputs => {:farm_id => true}},
       :farm_terminate => {:name => 'FarmTerminate', :inputs => {:farm_id => true, :keep_ebs => true, :keep_eip => false, :keep_dns_zone => false}},
-      :farms_list => {:name => 'FarmsList', :inputs => {}},
-      :global_variables_list => {:name => 'GlobalVariablesList', :inputs => {:farm_id => false, :role_id => false, :farm_role_id => false, :server_id => false}},
+      :farms_list => {:name => 'FarmsList',
+                      :inputs => {},
+                      :outputs => { :path => 'farmset@item'}},
+      :global_variables_list => {:name => 'GlobalVariablesList',
+                                 :inputs => {:farm_id => false, :role_id => false, :farm_role_id => false, :server_id => false},
+                                 :outputs => { :path => 'variableset@item' } },
       :logs_list => {:name => 'LogsList', :inputs => {:farm_id => true, :server_id => true, :start_from => false, :records_limit => false}},
       :roles_list => {:name => 'RolesList', :inputs => {:platform => false, :name => false, :prefix => false, :image_id => false}},
       :script_execute => {:name => 'ScriptExecute', :inputs => {:farm_role_id => false, :server_id => false, :farm_id => true, :script_id => true, :timeout => true, :async => true, :revision => false, :config_variables => false}},
@@ -78,7 +127,8 @@ module Scalr
     
     def initialize(action, endpoint, key_id, access_key, version, *arguments)
       set_inputs(action, arguments.flatten.first)
-      @inputs.merge!('Action' => ACTIONS[action.to_sym][:name], 'KeyID' => key_id, 'Version' => version, 'Timestamp' => Time.now.utc.iso8601)
+      @action_info = ACTIONS[action.to_sym]
+      @inputs.merge!('Action' => @action_info[:name], 'KeyID' => key_id, 'Version' => version, 'Timestamp' => Time.now.utc.iso8601)
       @endpoint = endpoint
       @access_key = access_key
     end
@@ -89,7 +139,7 @@ module Scalr
       http.set_debug_output(Scalr.debug)  if Scalr.debug
       http.use_ssl = true
       response = http.get("/?" + query_string + "&Signature=#{@signature}", {})
-      return Scalr::Response.new(response, response.body)
+      Scalr::Response.new(response, response.body, @action_info)
     end
     
     private
@@ -97,8 +147,8 @@ module Scalr
       def set_inputs(action, input_hash)
         input_hash ||= {}
         raise InvalidInputError.new unless input_hash.is_a? Hash
-        ACTIONS[action][:inputs].each do |key, value|
-          raise InvalidInputError.new("Missing required input: #{key.to_s}") if value and input_hash[key].nil?
+        ACTIONS[action][:inputs].each do |key, required|
+          raise InvalidInputError.new("Missing required input: #{key.to_s}") if required and input_hash[key].nil?
         end
         @inputs = {}
         input_hash.each do |key, value|
