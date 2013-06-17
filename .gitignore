@@ -23,6 +23,8 @@ pkg
 
 ## PROJECT::SPECIFIC
 
+scripts/access_info
+
 # CMW: IDEA stuff
 .idea/*
 *.iml
