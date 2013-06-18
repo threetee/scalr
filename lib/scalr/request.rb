@@ -51,76 +51,209 @@ module Scalr
     # response.content => [{id: '123', name: 'test-farm-1', comments: nil, status: '0' },
     #                      {id: '321', name: 'test-farm-2', comments: nil, status: '1' }]
 
+    V200 = '2.0.0'
+    V210 = '2.1.0'
+    V220 = '2.2.0'
+    V230 = '2.3.0'
 
     ACTIONS = {
-      :apache_vhost_create => {:name => 'ApacheVhostCreate',
-                               :inputs => {:domain_name => true, :farm_id => true, :farm_role_id => true, :document_root_dir => true, :enable_ssl => true, :ssl_private_key => false, :ssl_certificate => false},
-                               :outputs => { :path => 'result' } },
-      :bundle_task_get_status => {:name => 'BundleTaskGetStatus', :inputs => {:bundle_task_id => true}},
-      :dns_zone_create => {:name => 'DNSZoneCreate', :inputs => {:domain_name => true, :farm_id => false, :farm_role_id => false}},
-      :dns_zone_record_add => {:name => 'DNSZoneRecordAdd', :inputs => {:zone_name => true, :type => true, :ttl => true, :name => true, :value => true, :priority => false, :weight => false, :port => false}},
-      :dns_zone_record_remove => {:name => 'DNSZoneRecordRemove', :inputs => {:zone_name => true, :record_id => true}},
-      :dns_zone_records_list => {:name => 'DNSZoneRecordsList', :inputs => {:zone_name => true}},
-      :dns_zones_list => {:name => 'DNSZonesList', :inputs => {}},
-      :events_list => {:name => 'EventsList', :inputs => {:farm_id => true, :start_from => false, :records_limit => false}},
-      :farm_get_details => {:name => 'FarmGetDetails', :inputs => {:farm_id => true}},
-      :farm_get_stats => {:name => 'FarmGetStats', :inputs => {:farm_id => true, :date => false}},
-      :farm_launch => {:name => 'FarmLaunch', :inputs => {:farm_id => true}},
-      :farm_terminate => {:name => 'FarmTerminate', :inputs => {:farm_id => true, :keep_ebs => true, :keep_eip => false, :keep_dns_zone => false}},
-      :farms_list => {:name => 'FarmsList',
-                      :inputs => {},
-                      :outputs => { :path => 'farmset@item'}},
-      :global_variables_list => {:name => 'GlobalVariablesList',
-                                 :inputs => {:farm_id => false, :role_id => false, :farm_role_id => false, :server_id => false},
-                                 :outputs => { :path => 'variableset@item' } },
-      :logs_list => {:name => 'LogsList', :inputs => {:farm_id => true, :server_id => true, :start_from => false, :records_limit => false}},
-      :roles_list => {:name => 'RolesList', :inputs => {:platform => false, :name => false, :prefix => false, :image_id => false}},
-      :script_execute => {:name => 'ScriptExecute', :inputs => {:farm_role_id => false, :server_id => false, :farm_id => true, :script_id => true, :timeout => true, :async => true, :revision => false, :config_variables => false}},
-      :script_get_details => {:name => 'ScriptGetDetails', :inputs => {:script_id => true}},
-      :scripts_list => {:name => 'ScriptsList', :inputs => {}},
-      :server_image_create => {:name => 'ServerImageCreate', :inputs => {:server_id => true, :role_name => true}},
-      :server_launch => {:name => 'ServerLaunch', :inputs => {:farm_role_id => true}},
-      :server_reboot => {:name => 'ServerReboot', :inputs => {:server_id => true}},
-      :server_terminate => {:name => 'ServerTerminate', :inputs => {:server_id => true, :decrease_min_instances_setting => false}},
-      :statistics_get_graph_url => {:name => 'StatisticsGetGraphURL', :inputs => {:object_type => true, :object_id => true, :watcher_name => true, :graph_type => true}}
+      :apache_vhost_create => {
+          :name => 'ApacheVhostCreate', :version => V210,
+          :inputs => {:domain_name => true, :farm_id => true, :farm_role_id => true, :document_root_dir => true,
+                      :enable_ssl => true, :ssl_private_key => false, :ssl_certificate => false},
+          :outputs => { :path => 'result' }
+      },
+      :apache_vhosts_list  => {
+          :name => 'ApacheVhostsList', :version => V210,
+          :inputs => {},
+          :outputs => { :path => 'apachevhostsset@item' }
+      },
+      :bundle_task_get_status => {
+          :name => 'BundleTaskGetStatus', :version => V200,
+          :inputs => {:bundle_task_id => true},
+          :outputs => { :path => 'bundletaskstatus' }
+      },
+      :dm_application_deploy => {
+          :name => 'DmApplicationDeploy', :version => V230,
+          :inputs => {:application_id => true, :farm_role_id => true, :remote_path => true},
+          :outputs => { :path => 'deploymenttasksset@item' }
+      },
+      :dm_application_list => {
+          :name => 'DmApplicationsList', :version => V230,
+          :inputs => {},
+          :outputs => { :path => 'applicationset@item' }
+      },
+      :dm_sources_list => {
+          :name => 'DmSourcesList', :version => V230,
+          :inputs => {},
+          :outputs => { :path => 'sourceset@item' }
+      },
+      :dns_zone_create => {
+          :name => 'DNSZoneCreate', :version => V200,
+          :inputs => {:domain_name => true, :farm_id => false, :farm_role_id => false},
+          :outputs => { :path => 'result' }
+      },
+      :dns_zone_record_add => {
+          :name => 'DNSZoneRecordAdd', :version => V200,
+          :inputs => {:zone_name => true, :type => true, :ttl => true, :name => true, :value => true,
+                      :priority => false, :weight => false, :port => false},
+          :outputs => { :path => 'result' }
+      },
+      :dns_zone_record_remove => {
+          :name => 'DNSZoneRecordRemove', :version => V200,
+          :inputs => {:zone_name => true, :record_id => true},
+          :outputs => { :path => 'result' }
+      },
+      :dns_zone_records_list => {
+          :name => 'DNSZoneRecordsList', :version => V200,
+          :inputs => {:zone_name => true},
+          :outputs => { :path => 'zonerecordset@item' }
+      },
+      :dns_zones_list => {
+          :name => 'DNSZonesList', :version => V200,
+          :inputs => {},
+          :outputs => { :path => 'dnszoneset@item' }
+      },
+      :environments_list => {
+          :name => 'EnvironmentsList', :version => V230,
+          :inputs => {},
+          :outputs => { :path => 'environmentset@item' }
+      },
+      :events_list => {
+          :name => 'EventsList', :version => V200,
+          :inputs => {:farm_id => true, :start_from => false, :records_limit => false},
+          :outputs => { :path => 'eventset@item' }
+      },
+      :farm_clone => {
+          :name => 'FarmClone', :version => V230,
+          :inputs => {:farm_id => true},
+          :outputs => { :path => 'farmid' }
+      },
+      :farm_get_details => {
+          :name => 'FarmGetDetails', :version => V230,
+          :inputs => {:farm_id => true},
+          :outputs => { :path => 'farmroleset@item' }
+      },
+      :farm_get_stats => {
+          :name => 'FarmGetStats', :version => V200,
+          :inputs => {:farm_id => true, :date => false},
+          :outputs => { :path => 'statisticsset@item' }
+      },
+      :farm_launch => {
+          :name => 'FarmLaunch', :version => V200,
+          :inputs => {:farm_id => true},
+          :outputs => { :path => 'result' }
+      },
+      :farm_terminate => {
+          :name => 'FarmTerminate', :version => V200,
+          :inputs => {:farm_id => true, :keep_ebs => true, :keep_eip => false, :keep_dns_zone => false},
+          :outputs => { :path => 'result' }
+      },
+      :farms_list => {
+          :name => 'FarmsList', :version => V200,
+          :inputs => {},
+          :outputs => { :path => 'farmset@item'}
+      },
+      :global_variable_set => {
+          :name => 'GlobalVariableSet', :version => V230,
+          :inputs => {:farm_id => false, :farm_role_id => false, :param_name => true, :param_value => true},
+          :outputs => { :path => 'result' }
+      },
+      :global_variables_list => {
+          :name => 'GlobalVariablesList', :version => V200,
+          :inputs => {:farm_id => false, :role_id => false, :farm_role_id => false, :server_id => false},
+          :outputs => { :path => 'variableset@item' }
+      },
+      :logs_list => {
+          :name => 'LogsList', :version => V200,
+          :inputs => {:farm_id => true, :server_id => true, :start_from => false, :records_limit => false},
+          :outputs => { :path => 'logset@item' }
+      },
+      :roles_list => {
+          :name => 'RolesList', :version => V200,
+          :inputs => {:platform => false, :name => false, :prefix => false, :image_id => false},
+          :outputs => { :path => 'roleset@item' }
+      },
+      :script_execute => {
+          :name => 'ScriptExecute', :version => V200,
+          :inputs => {:farm_role_id => false, :server_id => false, :farm_id => true, :script_id => true,
+                      :timeout => true, :async => true, :revision => false, :config_variables => false},
+          :outputs => { :path => 'result' }
+      },
+      :script_get_details => {
+          :name => 'ScriptGetDetails', :version => V200,
+          :inputs => {:script_id => true},
+          :outputs => { :path => 'scriptrevisionset@item' }
+      },
+      :scripts_list => {
+          :name => 'ScriptsList', :version => V200,
+          :inputs => {},
+          :outputs => { :path => 'scriptset@item' }
+      },
+      :server_image_create => {
+          :name => 'ServerImageCreate', :version => V200,
+          :inputs => {:server_id => true, :role_name => true},
+          :outputs => { :path => 'bundletaskid' }
+      },
+      :server_launch => {
+          :name => 'ServerLaunch', :version => V200,
+          :inputs => {:farm_role_id => true, :increase_max_instances => false},
+          :outputs => { :path => 'serverid' }
+      },
+      :server_reboot => {
+          :name => 'ServerReboot', :version => V200,
+          :inputs => {:server_id => true},
+          :outputs => { :path => 'result' }
+      },
+      :server_terminate => {
+          :name => 'ServerTerminate', :version => V200,
+          :inputs => {:server_id => true, :decrease_min_instances_setting => false},
+          :outputs => { :path => 'result' }
+      },
+      :statistics_get_graph_url => {
+          :name => 'StatisticsGetGraphURL', :version => V200,
+          :inputs => {:object_type => true, :object_id => true, :watcher_name => true, :graph_type => true },
+          :outputs => { :path => 'graphurl' }
+      },
     }
 
     INPUTS = {
-      :async => 'Async',
-      :bundle_task_id => 'BundleTaskID',
-      :config_variables => 'ConfigVariables',
-      :date => 'Date',
-      :decrease_min_instances_setting => 'DecreaseMinInstancesSetting',
-      :domain_name => 'DomainName',
-      :farm_id => 'FarmID',
-      :farm_role_id => 'FarmRoleID',
-      :graph_type => 'GraphType',
-      :image_id => 'ImageID',
-      :keep_dns_zone => 'KeepDNSZone',
-      :keep_ebs => 'KeepEBS',
-      :keep_eip => 'KeepEIP',
-      :key => 'Key',
-      :name => 'Name',
-      :object_id => 'ObjectID',
-      :object_type => 'ObjectType',
-      :platform => 'Platform',
-      :port => 'Port',
-      :prefix => 'Prefix',
-      :priority => 'Priority',
-      :record_id => 'RecordID',
-      :records_limit => 'RecordsLimit',
-      :revision => 'Revision',
-      :role_name => 'RoleName',
-      :script_id => 'ScriptID',
-      :server_id => 'ServerID',
-      :start_from => 'StartFrom',
-      :timeout => 'Timeout',
-      :ttl => 'TTL',
-      :type => 'Type',
-      :value => 'Value',
-      :watcher_name => 'WatcherName',
-      :weight => 'Weight',
-      :zone_name => 'ZoneName'      
+        :async                          => 'Async',
+        :bundle_task_id                 => 'BundleTaskID',
+        :config_variables               => 'ConfigVariables',
+        :date                           => 'Date',
+        :decrease_min_instances_setting => 'DecreaseMinInstancesSetting',
+        :domain_name                    => 'DomainName',
+        :farm_id                        => 'FarmID',
+        :farm_role_id                   => 'FarmRoleID',
+        :graph_type                     => 'GraphType',
+        :image_id                       => 'ImageID',
+        :increase_max_instances         => 'IncreaseMaxInstances',
+        :keep_dns_zone                  => 'KeepDNSZone',
+        :keep_ebs                       => 'KeepEBS',
+        :keep_eip                       => 'KeepEIP',
+        :key                            => 'Key',
+        :name                           => 'Name',
+        :object_id                      => 'ObjectID',
+        :object_type                    => 'ObjectType',
+        :platform                       => 'Platform',
+        :port                           => 'Port',
+        :prefix                         => 'Prefix',
+        :priority                       => 'Priority',
+        :record_id                      => 'RecordID',
+        :records_limit                  => 'RecordsLimit',
+        :revision                       => 'Revision',
+        :role_name                      => 'RoleName',
+        :script_id                      => 'ScriptID',
+        :server_id                      => 'ServerID',
+        :start_from                     => 'StartFrom',
+        :timeout                        => 'Timeout',
+        :ttl                            => 'TTL',
+        :type                           => 'Type',
+        :value                          => 'Value',
+        :watcher_name                   => 'WatcherName',
+        :weight                         => 'Weight',
+        :zone_name                      => 'ZoneName'
     }
     
     attr_accessor :inputs, :endpoint, :access_key, :signature

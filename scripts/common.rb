@@ -22,3 +22,9 @@ module Scalr
     h
   end
 end
+
+class ScalrScript
+  def out(msg)
+    puts msg
+  end
+end
