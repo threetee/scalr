@@ -46,15 +46,77 @@ def resolve_farm(name)
   name # just assume we haven't hardcoded yet...
 end
 
+def resolve_farm_status(status)
+  return 'RUNNING'       if status == 1
+  return 'TERMINATED'    if status == 0
+  return 'TERMINATING'   if status == 2
+  return 'SYNCHRONIZING' if status == 3
+  return "UNKNOWN - #{status}"
+end
+
+# example of data structure: http://wiki.scalr.com/display/docs/FarmGetDetails
+def show_role(role_info)  
+  servers = role_info[:serverset].nil? ? ['None'] : show_servers(role_info[:serverset])
+  prefix = <<-ROLEINFO
+  #{role_info[:name]}
+    Farm role ID:  #{role_info[:id]}  (Role ID: #{role_info[:role_id] || 'N/A'})
+    Scaling:       #{show_scaling(role_info)}
+    Instance type: #{role_info[:platformproperties][:instancetype]}
+    Servers:
+      #{servers.join("\n      ")} 
+  ROLEINFO
+end
+
+def show_scaling(info)
+  return '' unless info[:scalingproperties] && info[:isscalingenabled]
+  p = info[:scalingproperties]
+  "[Scaling? #{info[:isscalingenabled].to_i > 0 ? 'YES' : 'NO'}] [Range: #{p[:mininstances]}-#{p[:maxinstances]}]"
+end
+
+def show_servers(server_items)
+  return ['None'] unless server_items[:item] && server_items[:item].length > 0  
+  server_items[:item].sort_by{|info| info[:index] }.map do |info|
+    "##{info[:index]}. #{info[:status]} #{' - Uptime: ' + info[:update] if info[:update].to_i > 0}"
+  end
+end
+
 Main {
 
   description <<-DESC
   Command-line interface for Scalr, with TTM-specific additions. See README.md for more.
   DESC
 
-  option 'farm' do
-    argument :optional
-    description 'ID/name of Scalr farm you want to manipulate'
+  mode 'deploy'
+
+  mode 'applications' do
+    def run
+      response = Scalr.dm_applications_list
+      generic_error(response) && return unless response.successful_request?
+
+      response.content.each do |item|
+        puts "#{item[:name]}   [Application ID: #{item[:applicationid]}] [Source ID: #{item[:sourceid]}]"
+      end
+    end
+  end
+
+  mode 'farm' do
+    description 'Details about roles and other data within a farm'
+    option 'farm' do 
+        argument :required 
+      end
+
+    def run
+      response = Scalr.farm_get_details(farm_id: resolve_farm(params['farm'].value))
+      generic_error(response) && return unless response.successful_request?
+
+      if response.content.instance_of?(Array)
+        response.content.each do |role_info|
+          puts show_role(role_info)
+        end
+      else
+        puts show_role(response.content)
+      end
+    end
   end
 
   mode 'farms' do
@@ -65,28 +127,10 @@ Main {
       generic_error(response) && return unless response.successful_request?
 
       response.content.each do |farm_info|
-        puts "#{farm_info[:id]}: #{farm_info[:name]}"
+        status = resolve_farm_status(farm_info[:status].to_i)
+        puts "#{farm_info[:id]}: #{farm_info[:name]} - #{status}"
       end
     end
-
-  end
-
-  mode 'roles' do
-    description 'List all roles within a farm'
-
-    option 'farm' do
-      argument :required
-    end
-
-    def run
-      response = Scalr.roles_list
-      generic_error(response) && return unless response.successful_request?
-
-      response.content.each do |role_info|
-        puts "#{role_info[:id]}: #{role_info[:name]}"
-      end
-    end
-
   end
 
   mode 'config:get' do
