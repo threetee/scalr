@@ -94,7 +94,7 @@ Main {
       generic_error(response) && return unless response.successful_request?
 
       response.content.each do |item|
-        puts "#{item[:name]}   [Application ID: #{item[:applicationid]}] [Source ID: #{item[:sourceid]}]"
+        puts sprintf('%-25s [Application ID: %s] [Source ID: %s]', item[:name], item[:id], item[:sourceid])
       end
     end
   end
