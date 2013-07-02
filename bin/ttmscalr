@@ -1,0 +1,147 @@
+#!/usr/bin/env ruby
+
+# format of invocation:
+#
+# ttmscalr [command] [option...] -a application
+# cribbed this from 'heroku' binary...
+
+# resolve bin path, ignoring symlinks
+require "pathname"
+bin_path = Pathname.new(__FILE__).realpath
+
+# add self to libpath
+$:.unshift File.expand_path("../../lib", bin_path)
+
+require 'main'
+require 'scalr'
+require 'scalr/ttm'
+
+Scalr.read_access_info
+#Scalr.debug = $stdout
+
+# hardcoded (a) they shouldn't change, and (b) we're only using them for convenient aliasing
+FARM_ALIASES = {
+  '14433' => [ 'Prod-DB-Primary' ],
+  '14460' => [ 'Prod-DB-Shard1' ],
+  '14462' => [ 'Prod-DB-Shard2' ],
+  '14463' => [ 'Prod-DB-Shard3' ],
+  '14464' => [ 'Prod-DB-Shard4' ],
+  '14498' => [ 'Production', 'ttm-production' ],
+  '15163' => [ 'DB-Test' ],
+  '15274' => [ 'PG-TEST' ],
+  '15275' => [ 'Review', 'ttm-review', 'ttm-staging' ]
+}
+
+
+def generic_error(response)
+  puts "Error! [Code: #{response.code}] [Message: #{response.message}]"
+  true
+end
+
+def resolve_farm(name)
+  return name if FARM_ALIASES.keys.include? name
+  FARM_ALIASES.each do |farm_id, aliases|
+    return farm_id if aliases.include? name
+  end
+  name # just assume we haven't hardcoded yet...
+end
+
+Main {
+
+  description <<-DESC
+  Command-line interface for Scalr, with TTM-specific additions. See README.md for more.
+  DESC
+
+  option 'farm' do
+    argument :optional
+    description 'ID/name of Scalr farm you want to manipulate'
+  end
+
+  mode 'farms' do
+    description 'List all farms'
+
+    def run
+      response = Scalr.farms_list
+      generic_error(response) && return unless response.successful_request?
+
+      response.content.each do |farm_info|
+        puts "#{farm_info[:id]}: #{farm_info[:name]}"
+      end
+    end
+
+  end
+
+  mode 'roles' do
+    description 'List all roles within a farm'
+
+    option 'farm' do
+      argument :required
+    end
+
+    def run
+      response = Scalr.roles_list
+      generic_error(response) && return unless response.successful_request?
+
+      response.content.each do |role_info|
+        puts "#{role_info[:id]}: #{role_info[:name]}"
+      end
+    end
+
+  end
+
+  mode 'config:get' do
+
+    description <<-CONFIG
+    Retrieve all configuration variables for a farm as key-value pairs,
+    or a single variable as a string suitable for shell-inclusion.
+    CONFIG
+
+    argument 'key' do
+      argument :optional
+      description 'Name of config key for which you want the value'
+    end
+
+    def run
+      farm_id = resolve_farm(params['farm'].value)
+      response = Scalr.global_variables_list(farm_id: farm_id)
+      generic_error(response) && return unless response.successful_request?
+
+      if response.content.nil? || response.content.empty?
+        puts 'NO CONFIG FOUND'
+      elsif params['key'].value
+        found = response.content.detect {|pair| pair[:name] == params['key'].value}
+        if found
+          puts found[:value]
+        end
+      else
+        response.content.each do |pair|
+          puts sprintf('%-25s: %s', pair[:name], pair[:value])
+        end
+      end
+    end
+
+  end
+
+  mode 'config:set' do
+
+    description 'Assign a key/value configuration pair to a farm.'
+    
+    option 'farm' do
+      argument :required
+    end
+
+    argument 'pair' do
+      description "Key=value pair for assignment; example: TTM_HEADPHONES=sennheiser"
+    end
+
+    def run
+      farm_id = resolve_farm(params['farm'].value)
+      pair = params['pair'].value.split(/=/, 2)
+      response = Scalr.global_variable_set(farm_id: farm_id, param_name: pair[0], param_value: pair[1])
+      generic_error(response) && return unless response.successful_request?
+      puts "Result #{response.content}"
+    end
+  end
+}
+
+
