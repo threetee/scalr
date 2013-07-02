@@ -84,7 +84,7 @@ module Scalr
           :defaults => { :remote_path => '/var/www' },
           :outputs => { :path => 'deploymenttasksset@item' }
       },
-      :dm_application_list => {
+      :dm_applications_list => {
           :name => 'DmApplicationsList', :version => V230,
           :inputs => {},
           :outputs => { :path => 'applicationset@item' }
@@ -318,6 +318,14 @@ module Scalr
       def set_inputs(action, input_hash)
         input_hash ||= {}
         raise InvalidInputError.new unless input_hash.is_a? Hash
+
+        # assign defaults
+        ACTIONS[action][:inputs].each do |key, required|
+          next unless input_hash[key].nil? && ACTIONS[action][:defaults] && ACTIONS[action][:defaults][key]
+          input_hash[key] = ACTIONS[action][:defaults][key]
+        end
+
+        # required item checking
         ACTIONS[action][:inputs].each do |key, required|
           raise InvalidInputError.new("Missing required input: #{key.to_s}") if required and input_hash[key].nil?
         end
