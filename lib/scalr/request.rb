@@ -28,7 +28,7 @@ module Scalr
     #
     # response.content => 'creating-role'
     #
-    # 2. :outputs => { :path => 'FarmSet@Item' }
+    # 2. :outputs => { :path => 'farmset@item' }
     #
     # <ListFarmsResponse>
     #   <TransactionID>4df7f431-927a-43e3-8ccf-bec323f18f9a</TransactionID>
@@ -73,15 +73,41 @@ module Scalr
           :inputs => {:bundle_task_id => true},
           :outputs => { :path => 'bundletaskstatus' }
       },
+      :dm_application_create => {
+        :name => 'DmApplicationCreate', :version => V230,
+        :inputs => {:name => true, :source_id => true},
+        :outputs => { :path => 'applicationid' }
+      },
       :dm_application_deploy => {
           :name => 'DmApplicationDeploy', :version => V230,
           :inputs => {:application_id => true, :farm_role_id => true, :remote_path => true},
+          :defaults => { :remote_path => '/var/www' },
           :outputs => { :path => 'deploymenttasksset@item' }
       },
       :dm_application_list => {
           :name => 'DmApplicationsList', :version => V230,
           :inputs => {},
           :outputs => { :path => 'applicationset@item' }
+      },
+      :dm_deployment_task_get_log => {
+          :name => 'DmDeploymentTaskGetLog', :version => V230,
+          :inputs => { :deployment_task_id => true },
+          :outputs => { :path => 'logset@item' } 
+      },
+      :dm_deployment_task_get_status => {
+        :name => 'DmDeploymentTaskGetStatus', :version => V230,
+        :inputs => { :deployment_task_id => true },
+        :outputs => { :path => 'deploymenttaskstatus' } 
+      },
+      :dm_deployment_tasks_list => {
+        :name => 'DmDeploymentTasksList', :version => V230,
+        :inputs => { :application_id => false, :farm_role_id => false, :remote_path => false },
+        :outputs => { :path => 'deploymenttasksset@item' } 
+      },
+      :dm_source_create => {
+          :name => 'DmSourceCreate', :version => V230,
+          :inputs => { :type => true, :url => true},
+          :outputs => { :path => :sourceid }
       },
       :dm_sources_list => {
           :name => 'DmSourcesList', :version => V230,
@@ -224,6 +250,7 @@ module Scalr
         :config_variables               => 'ConfigVariables',
         :date                           => 'Date',
         :decrease_min_instances_setting => 'DecreaseMinInstancesSetting',
+        :deployment_task_id             => 'DeploymentTaskID',
         :document_root_dir              => 'DocumentRootDir',
         :domain_name                    => 'DomainName',
         :enable_ssl                     => 'EnableSSL',
@@ -253,12 +280,14 @@ module Scalr
         :role_name                      => 'RoleName',
         :script_id                      => 'ScriptID',
         :server_id                      => 'ServerID',
+        :source_id                      => 'SourceID',
         :ssl_certificate                => 'SSLCertificate',
         :ssl_private_key                => 'SSLPrivateKey',
         :start_from                     => 'StartFrom',
         :timeout                        => 'Timeout',
         :ttl                            => 'TTL',
         :type                           => 'Type',
+        :url                            => 'URL',
         :value                          => 'Value',
         :watcher_name                   => 'WatcherName',
         :weight                         => 'Weight',
