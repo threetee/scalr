@@ -34,7 +34,8 @@ FARM_ALIASES = {
 
 
 def generic_error(response)
-  puts "Error! [Code: #{response.code}] [Message: #{response.message}]"
+  return false if response.success?
+  puts "Error! [Code: #{response.code}] [Message: #{response.error}]"
   true
 end
 
@@ -55,7 +56,7 @@ def resolve_farm_status(status)
 end
 
 # example of data structure: http://wiki.scalr.com/display/docs/FarmGetDetails
-def show_role(role_info)  
+def show_role(role_info)
   servers = role_info[:serverset].nil? ? ['None'] : show_servers(role_info[:serverset])
   prefix = <<-ROLEINFO
   #{role_info[:name]}
@@ -63,18 +64,34 @@ def show_role(role_info)
     Scaling:       #{show_scaling(role_info)}
     Instance type: #{role_info[:platformproperties][:instancetype]}
     Servers:
-      #{servers.join("\n      ")} 
+      #{servers.join("\n      ")}
   ROLEINFO
+end
+
+def build_pattern(items, keys, template)
+  lengths = scan_lengths(items, keys)
+  lengths.each do |key, length|
+    template = template.gsub(/\{#{key}\}/, "#{length}s")
+  end
+  template
+end
+
+def scan_lengths(items, keys)
+  Hash[ keys.map {|key| [key, items.map {|item| item[key].nil? ? 0 : item[key].length }.max ]} ]
 end
 
 def show_scaling(info)
   return '' unless info[:scalingproperties] && info[:isscalingenabled]
   p = info[:scalingproperties]
-  "[Scaling? #{info[:isscalingenabled].to_i > 0 ? 'YES' : 'NO'}] [Range: #{p[:mininstances]}-#{p[:maxinstances]}]"
+  if info[:isscalingenabled].to_i > 0
+    "YES [Range: #{p[:mininstances]}-#{p[:maxinstances]}]"
+  else
+    "NO"
+  end
 end
 
 def show_servers(server_items)
-  return ['None'] unless server_items[:item] && server_items[:item].length > 0  
+  return ['None'] unless server_items[:item] && server_items[:item].length > 0
   server_items[:item].sort_by{|info| info[:index] }.map do |info|
     "##{info[:index]}. #{info[:status]} #{' - Uptime: ' + info[:update] if info[:update].to_i > 0}"
   end
@@ -86,28 +103,92 @@ Main {
   Command-line interface for Scalr, with TTM-specific additions. See README.md for more.
   DESC
 
-  mode 'deploy'
+  mode 'deploy' do
+    option 'application' do
+      argument :required
+      description 'ID of application to deploy'
+    end
+    option 'path' do
+      argument :optional
+      description 'Path to which the application will be deployed'
+    end
+    option 'role' do
+      argument :required
+      description 'ID of farm role to which we will deploy the application'
+    end
+
+    def run
+      response = Scalr.dm_application_deploy(
+                     farm_role_id: params['role'].value,
+                     application_id: params['application'].value,
+                     remote_path: params['path'].given? ? nil : params['path'].value)
+      return if generic_error(response)
+
+      puts response.inspect
+    end
+  end
+
+  mode 'launch' do
+    description 'Launch a Farm or Server'
+
+    option 'farm' do
+      argument :optional
+      description 'Farm to launch'
+    end
+
+    option 'role' do
+      argument :optional
+      description 'Farm role to launch'
+    end
+
+    def run
+      options = {}
+      action  = nil
+      if param['farm'].given?
+        options[:farm_id] = resolve_farm(param['farm'].value)
+        action = :farm_launch
+      elsif param['role'].given?
+        options[:farm_role_id] = param['role'].value
+        action = :server_launch
+      end
+      if options.empty?
+        raise "Must provide either 'farm' or 'role' to launch"
+      end
+
+      response = Scalr.send(action, options)
+      return if generic_error(response)
+    
+      if action == :farm_launch
+        puts "Result: #{response.content}"
+      else
+        puts "Server ID: #{response.content}"
+      end
+    end
+
+  end
+
 
   mode 'applications' do
     def run
       response = Scalr.dm_applications_list
-      generic_error(response) && return unless response.successful_request?
-
+      return if generic_error(response) 
+      pat = build_pattern(response.content, [:name, :id, :source_id], 
+                          "%-{name} [Application ID: %{id}] [Source ID: %{source_id}]")
       response.content.each do |item|
-        puts sprintf('%-25s [Application ID: %s] [Source ID: %s]', item[:name], item[:id], item[:sourceid])
+        puts sprintf(pat, item[:name], item[:id], item[:sourceid])
       end
     end
   end
 
   mode 'farm' do
     description 'Details about roles and other data within a farm'
-    option 'farm' do 
-        argument :required 
-      end
+    option 'farm' do
+      argument :required
+    end
 
     def run
       response = Scalr.farm_get_details(farm_id: resolve_farm(params['farm'].value))
-      generic_error(response) && return unless response.successful_request?
+      return if generic_error(response)
 
       if response.content.instance_of?(Array)
         response.content.each do |role_info|
@@ -124,11 +205,12 @@ Main {
 
     def run
       response = Scalr.farms_list
-      generic_error(response) && return unless response.successful_request?
+      return if generic_error(response)
 
+      pat = build_pattern(response.content, [:id, :name, :status], '%{id}: %-{name} %{status}')
       response.content.each do |farm_info|
         status = resolve_farm_status(farm_info[:status].to_i)
-        puts "#{farm_info[:id]}: #{farm_info[:name]} - #{status}"
+        puts sprintf(pat, farm_info[:id], farm_info[:name], status)
       end
     end
   end
@@ -140,6 +222,11 @@ Main {
     or a single variable as a string suitable for shell-inclusion.
     CONFIG
 
+    option 'farm' do
+      argument :required
+      description 'Farm to get configuration from'
+    end
+
     argument 'key' do
       argument :optional
       description 'Name of config key for which you want the value'
@@ -148,7 +235,7 @@ Main {
     def run
       farm_id = resolve_farm(params['farm'].value)
       response = Scalr.global_variables_list(farm_id: farm_id)
-      generic_error(response) && return unless response.successful_request?
+      return if generic_error(response)
 
       if response.content.nil? || response.content.empty?
         puts 'NO CONFIG FOUND'
@@ -169,23 +256,46 @@ Main {
   mode 'config:set' do
 
     description 'Assign a key/value configuration pair to a farm.'
-    
+
     option 'farm' do
       argument :required
     end
 
     argument 'pair' do
-      description "Key=value pair for assignment; example: TTM_HEADPHONES=sennheiser"
+      arity -1
+      description "Key=value pairs for assignment; example: TTM_HEADPHONES=sennheiser. May also pass a filename of key/value pairs, one per line -- output of config:get works fine"
     end
 
     def run
       farm_id = resolve_farm(params['farm'].value)
-      pair = params['pair'].value.split(/=/, 2)
-      response = Scalr.global_variable_set(farm_id: farm_id, param_name: pair[0], param_value: pair[1])
-      generic_error(response) && return unless response.successful_request?
-      puts "Result #{response.content}"
+      pairs = read_pairs(params['pair'])
+      if pairs.empty?
+        raise "Must provide at least one key=value pair"
+      end      
+      pairs.each do |pair|        
+        response = Scalr.global_variable_set(farm_id: farm_id, param_name: pair[0], param_value: pair[1])
+        pair_display = pair.join("=")
+        if response.success?
+          puts "OK #{pair_display}"
+        else
+          puts "FAIL #{pair_display} => #{response.error}"
+        end
+      end
+    end
+
+    def read_pairs(param)
+      if param.values.length == 1 && File.exists?(param.value)
+        File.readlines(param.value).map {|line| to_pair(line)}.compact
+      else
+        param.values.map {|entry| to_pair(entry)}.compact
+      end
+    end
+
+    def to_pair(line)
+      line = line.chomp
+      return nil if line =~ /^\s*#/ || line =~ /^\s*$/
+      key, value = line.split( /\s*[\=\:]\s*/, 2)
+      [key, value]
     end
   end
 }
-
-
