@@ -190,17 +190,6 @@ Tasks to implement:
 * set: globals || farm || farm + role || farm + role + server, one or
   more key/value pairs
 
-### ps
-
-Tasks to implement:
-
-* restart: takes farm || farm + role || farm + role + server
-* start: takes farm || farm + role || farm + role + server
-* stop: takes farm || farm + role || farm + role + server
-* info: list/restrict-to farms || farms + roles || farms + roles +
-  servers; give deterministic + short (!!) IDs to servers so users
-  don't need to juggle GUIDs -- see scalar 'index' of each server.
-
 ### deploy
 
 Tasks to accomplish:
@@ -211,6 +200,17 @@ Tasks to accomplish:
 * ...triggers graceful unicorn restart
 * ...unicorn will issue error if new code fails (??)
 * listen for errors on PaperTrail
+
+### ps
+
+Tasks to implement:
+
+* restart: takes farm || farm + role || farm + role + server
+* start: takes farm || farm + role || farm + role + server
+* stop: takes farm || farm + role || farm + role + server
+* info: list/restrict-to farms || farms + roles || farms + roles +
+  servers; give deterministic + short (!!) IDs to servers so users
+  don't need to juggle GUIDs -- see scalar 'index' of each server.
 
 ### load_test
 
@@ -239,3 +239,17 @@ Which if everything is ok will just output:
 You can also view all the API commands:
 
     ruby bin/api_check.rb all
+
+or just those matching a substring:
+
+    $ ruby bin/api_check.rb match app
+    dm_application_create (DmApplicationCreate) @ 2.3.0
+      => name (Name) [Required? true]
+      => source_id (SourceID) [Required? true]
+
+    dm_application_deploy (DmApplicationDeploy) @ 2.3.0
+      => application_id (ApplicationID) [Required? true]
+      => farm_role_id (FarmRoleID) [Required? true]
+      => remote_path (RemotePath) [Required? true => default: /var/www]
+
+    dm_applications_list (DmApplicationsList) @ 2.3.0
