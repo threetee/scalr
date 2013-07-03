@@ -91,9 +91,12 @@ def show_scaling(info)
 end
 
 def show_servers(server_items)
-  return ['None'] unless server_items[:item] && server_items[:item].length > 0
-  server_items[:item].sort_by{|info| info[:index] }.map do |info|
-    "##{info[:index]}. #{info[:status]} #{' - Uptime: ' + info[:update] if info[:update].to_i > 0}"
+  return ['None'] unless server_items[:item]
+  servers = server_items[:item].instance_of?(Array) ? server_items[:item] : [server_items[:item]]
+  pat = build_pattern(servers, [:index, :status, :uptime, :serverid],
+                      '#%-{index}. %{status} - Uptime %{uptime} - %{serverid}')
+  servers.sort_by{|info| info[:index] }.map do |info|    
+    sprintf(pat, info[:index], info[:status], info[:uptime], info[:serverid])
   end
 end
 
@@ -167,6 +170,41 @@ Main {
 
   end
 
+
+  mode 'terminate' do
+    description 'Terminate a Farm or Server'
+
+    option 'farm' do
+      argument :optional
+      description 'Farm to launch'
+    end
+
+    option 'server' do
+      argument :optional
+      description 'Server ID to launch'
+    end
+
+    def run
+      options = {}
+      action  = nil
+      if param['farm'].given?
+        options[:farm_id] = resolve_farm(param['farm'].value)
+        action = :farm_terminate
+      elsif param['role'].given?
+        options[:server_id] = param['server'].value
+        action = :server_terminate
+      end
+      if options.empty?
+        raise "Must provide either 'farm' or 'server' to terminate"
+      end
+
+      response = Scalr.send(action, options)
+      return if generic_error(response)
+      
+      puts "Result: #{response.content}"
+    end
+    
+  end
 
   mode 'applications' do
     def run
