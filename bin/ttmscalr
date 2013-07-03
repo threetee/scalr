@@ -190,7 +190,7 @@ Main {
       if param['farm'].given?
         options[:farm_id] = resolve_farm(param['farm'].value)
         action = :farm_terminate
-      elsif param['role'].given?
+      elsif param['server'].given?
         options[:server_id] = param['server'].value
         action = :server_terminate
       end
