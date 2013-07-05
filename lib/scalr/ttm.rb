@@ -20,7 +20,7 @@ module Scalr
     raise "File does not exist [Given: #{filename}]" unless File.exists?(filename)
     h = {}
     File.readlines(filename).each do |line|
-      key, value = line.strip!.split(/\s*=\s*/, 2)
+      key, value = line.strip.split(/\s*=\s*/, 2)
       h[key.downcase.to_sym] = value
     end
     h
