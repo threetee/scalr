@@ -59,7 +59,7 @@ end
 # example of data structure: http://wiki.scalr.com/display/docs/FarmGetDetails
 def show_role(role_info)
   servers = role_info[:serverset].nil? ? ['None'] : show_servers(role_info[:serverset])
-  prefix = <<-ROLEINFO
+  <<-ROLEINFO
   #{role_info[:name]}
     Farm role ID:  #{role_info[:id]}  (Role ID: #{role_info[:role_id] || 'N/A'})
     Scaling:       #{show_scaling(role_info)}
@@ -101,6 +101,64 @@ def show_servers(server_items)
   end
 end
 
+# to save typing we map parameters to shorter names
+#   Scalr API name   => Our short name
+PARAM_ALIASES = {
+    application_id:     :application,
+    farm_id:            :farm,
+    records_limit:      :limit,
+    remote_path:        :path,
+    farm_role_id:       :role,
+    server_id:          :server,
+    start_from:         :start,
+    deployment_task_id: :task,
+}
+
+def map_parameter_key(key)
+  PARAM_ALIASES[key.to_sym] || key.to_sym
+end
+
+# allow use of either our short name or Scalr API name
+def collect_options(api_names, params)
+  options = {}
+  api_names.each do |api_name|
+    cli_name = map_parameter_key(api_name)
+    value = transform_value(api_name, first_value_for(params, cli_name, api_name))
+    options[api_name] = value if value
+  end
+  options
+end
+
+# Note that we're using params.find vs params['name'] because
+# the latter kills the program (weird!)
+def first_value_for(params, *keys)
+  keys.each do |key|
+    option = params.find {|param| param.name.to_s == key.to_s}
+    if option
+      value = option.values.length > 1 ? option.values : option.value
+      return value if value
+    end
+  end
+  nil
+end
+
+# allow transformations/lookups of data from the user
+def transform_value(name, value)
+  if name == :farm_id && ! value.nil?
+    resolve_farm(value)
+  else
+    value
+  end
+
+end
+
+def dispatch(action_name, params)
+  request_info = Scalr::Request.action(action_name)
+  raise "Unknown action [Given: #{action_name.to_s}]" unless request_info
+  options = collect_options(request_info[:inputs].keys, params)
+  Scalr.send(action_name, options)
+end
+
 # implementation notes:
 # - Main seems to dispatch on mode-names in first-match order. So if you
 #   have a mode 'deploy' before a mode 'deploy:log', the latter will never
@@ -118,7 +176,7 @@ Main {
       description 'ID of deployment task'
     end
     def run
-      response = Scalr.dm_deployment_task_get_log(deployment_task_id: params['task'].value)
+      response = dispatch(:dm_deployment_task_get_log, params)
       return if generic_error(response)
 
       response.content.each do |log_item|
@@ -135,7 +193,7 @@ Main {
       description 'ID of deployment task'
     end
     def run
-      response = Scalr.dm_deployment_task_get_status(deployment_task_id: params['task'].value)
+      response = dispatch(:dm_deployment_task_get_status, params)
       return if generic_error(response)
 
       puts "Status: #{response.content}"
@@ -157,9 +215,7 @@ Main {
     end
 
     def run
-      response = Scalr.dm_deployment_tasks_list(
-                   application_id: params['application'].value,
-                   farm_role_id: params['role'].value)
+      response = dispatch(:dm_deployment_tasks_list, params)
       return if generic_error(response)
 
       # return: serverid, deploymenttaskid, farmroleid, remotepath, status (no time?!)
@@ -186,10 +242,7 @@ Main {
     end
 
     def run
-      response = Scalr.dm_application_deploy(
-                     farm_role_id: params['role'].value,
-                     application_id: params['application'].value,
-                     remote_path: params['path'].given? ? nil : params['path'].value)
+      response = dispatch(:dm_application_deploy, params)
       return if generic_error(response)
 
       puts response.inspect
@@ -213,13 +266,7 @@ Main {
     # TODO: add option for quieting/verbosing log messages; filtering on script name
 
     def run
-      options = {
-          farm_id:       resolve_farm(params['farm'].value),
-          server_id:     params['server'].value,
-          start_from:    params['start'].value,
-          records_limit: params['limit'].value
-      }
-      response = Scalr.script_logs_list(options)
+      response = dispatch(:script_logs_list, params)
       return if generic_error(response)
 
       # each record has: message, timestamp, scriptname, exectime, execexitcode, event, serverid
@@ -252,16 +299,12 @@ Main {
     end
 
     def run
-      options = {}
-      action  = nil
-      if param['farm'].given?
-        options[:farm_id] = resolve_farm(param['farm'].value)
-        action = :farm_launch
-      elsif param['role'].given?
-        options[:farm_role_id] = param['role'].value
-        action = :server_launch
-      end
-      if options.empty?
+
+      options = collect_options([:farm_id, :farm_role_id], params)
+      action = nil
+      action = :farm_launch   if options[:farm_id]
+      action = :server_launch if options[:farm_role_id]
+      if action.nil?
         raise "Must provide either 'farm' or 'role' to launch"
       end
 
@@ -292,16 +335,11 @@ Main {
     end
 
     def run
-      options = {}
+      options = collect_options([:farm_id, :server_id], params)
       action  = nil
-      if param['farm'].given?
-        options[:farm_id] = resolve_farm(param['farm'].value)
-        action = :farm_terminate
-      elsif param['server'].given?
-        options[:server_id] = param['server'].value
-        action = :server_terminate
-      end
-      if options.empty?
+      action = :farm_terminate   if options[:farm_id]
+      action = :server_terminate if options[:server_id]
+      if action.nil?
         raise "Must provide either 'farm' or 'server' to terminate"
       end
 
@@ -310,7 +348,6 @@ Main {
 
       puts "Result: #{response.content}"
     end
-
   end
 
   mode 'applications' do
@@ -332,7 +369,7 @@ Main {
     end
 
     def run
-      response = Scalr.farm_get_details(farm_id: resolve_farm(params['farm'].value))
+      response = dispatch(:farm_get_details, params)
       return if generic_error(response)
 
       if response.content.instance_of?(Array)
@@ -378,8 +415,7 @@ Main {
     end
 
     def run
-      farm_id = resolve_farm(params['farm'].value)
-      response = Scalr.global_variables_list(farm_id: farm_id)
+      response = dispatch(:global_variables_list, params)
       return if generic_error(response)
 
       if response.content.nil? || response.content.empty?
@@ -399,7 +435,6 @@ Main {
   end
 
   mode 'config:set' do
-
     description 'Assign a key/value configuration pair to a farm.'
 
     option 'farm' do
@@ -412,14 +447,14 @@ Main {
     end
 
     def run
-      farm_id = resolve_farm(params['farm'].value)
+      options = collect_options([:farm_id], params)
       pairs = read_pairs(params['pair'])
       if pairs.empty?
-        raise "Must provide at least one key=value pair"
+        raise 'Must provide at least one key=value pair'
       end
       pairs.each do |pair|
-        response = Scalr.global_variable_set(farm_id: farm_id, param_name: pair[0], param_value: pair[1])
-        pair_display = pair.join("=")
+        response = Scalr.global_variable_set(options.merge(param_name: pair[0], param_value: pair[1]))
+        pair_display = pair.join('=')
         if response.success?
           puts "OK #{pair_display}"
         else
