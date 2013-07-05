@@ -6,12 +6,13 @@
 # cribbed this from 'heroku' binary...
 
 # resolve bin path, ignoring symlinks
-require "pathname"
+require 'pathname'
 bin_path = Pathname.new(__FILE__).realpath
 
 # add self to libpath
 $:.unshift File.expand_path("../../lib", bin_path)
 
+require 'date'
 require 'main'
 require 'scalr'
 require 'scalr/ttm'
@@ -95,16 +96,80 @@ def show_servers(server_items)
   servers = server_items[:item].instance_of?(Array) ? server_items[:item] : [server_items[:item]]
   pat = build_pattern(servers, [:index, :status, :uptime, :serverid],
                       '#%-{index}. %{status} - Uptime %{uptime} - %{serverid}')
-  servers.sort_by{|info| info[:index] }.map do |info|    
+  servers.sort_by{|info| info[:index]}.map do |info|
     sprintf(pat, info[:index], info[:status], info[:uptime], info[:serverid])
   end
 end
+
+# implementation notes:
+# - Main seems to dispatch on mode-names in first-match order. So if you
+#   have a mode 'deploy' before a mode 'deploy:log', the latter will never
+#   get invoked. So least-specific modes should be after most-specific.
 
 Main {
 
   description <<-DESC
   Command-line interface for Scalr, with TTM-specific additions. See README.md for more.
   DESC
+
+  mode 'deploy:log' do
+    option 'task' do
+      argument :required
+      description 'ID of deployment task'
+    end
+    def run
+      response = Scalr.dm_deployment_task_get_log(deployment_task_id: params['task'].value)
+      return if generic_error(response)
+
+      response.content.each do |log_item|
+        time = Time.at(log_item[:timestamp].to_i).strftime('%H:%M:%S')
+        message = log_item[:message].gsub( /[\r\n]/, '').rstrip
+        puts "#{time} - #{message}"
+      end
+    end
+  end
+
+  mode 'deploy:status' do
+    option 'task' do
+      argument :required
+      description 'ID of deployment task'
+    end
+    def run
+      response = Scalr.dm_deployment_task_get_status(deployment_task_id: params['task'].value)
+      return if generic_error(response)
+
+      puts "Status: #{response.content}"
+    end
+  end
+
+  mode 'deploy:tasks' do
+    option 'application' do
+      argument :optional
+      description 'ID of application'
+    end
+    option 'role' do
+      argument :optional
+      description 'ID of farm role'
+    end
+    option 'server' do
+      argument :optional
+      description 'ID server'
+    end
+
+    def run
+      response = Scalr.dm_deployment_tasks_list(
+                   application_id: params['application'].value,
+                   farm_role_id: params['role'].value)
+      return if generic_error(response)
+
+      # return: serverid, deploymenttaskid, farmroleid, remotepath, status (no time?!)
+      pat = build_pattern(response.content, [:deploymenttaskid, :farmroleid, :serverid, :status],
+                          '%-{deploymenttaskid} - %-{status} [Server: %s]')
+      response.content.each do |task_item|
+        puts sprintf(pat, task_item[:deploymenttaskid], task_item[:status], task_item[:serverid])
+      end
+    end
+  end
 
   mode 'deploy' do
     option 'application' do
@@ -128,6 +193,48 @@ Main {
       return if generic_error(response)
 
       puts response.inspect
+    end
+  end
+
+  mode 'logs:script' do
+    option 'farm' do
+      argument :required
+    end
+    option 'server' do
+      argument :optional
+    end
+    option 'start' do
+      argument :optional
+    end
+    option 'limit' do
+      argument :optional
+    end
+
+    # TODO: add option for quieting/verbosing log messages; filtering on script name
+
+    def run
+      options = {
+          farm_id:       resolve_farm(params['farm'].value),
+          server_id:     params['server'].value,
+          start_from:    params['start'].value,
+          records_limit: params['limit'].value
+      }
+      response = Scalr.script_logs_list(options)
+      return if generic_error(response)
+
+      # each record has: message, timestamp, scriptname, exectime, execexitcode, event, serverid
+      pat = build_pattern(response.content, [:scriptname, :execexitcode, :exectime],
+                          '%s - %-{scriptname} - [Exit: %{execexitcode}] [Exec time: %{exectime}] [From event: %s]')
+      response.content.each do |log_item|
+        time = Time.at(log_item[:timestamp].to_i).strftime('%d %b %H:%M:%S')
+        message = log_item[:message].nil? ? '' : log_item[:message].strip
+        from_event = log_item[:event] || 'N/A'
+        puts sprintf(pat, time, log_item[:scriptname], log_item[:execexitcode],
+                          log_item[:exectime], from_event)
+        if log_item[:execexitcode].to_i != 0
+          puts message, "\n\n"
+        end
+      end
     end
   end
 
@@ -160,7 +267,7 @@ Main {
 
       response = Scalr.send(action, options)
       return if generic_error(response)
-    
+
       if action == :farm_launch
         puts "Result: #{response.content}"
       else
@@ -200,17 +307,17 @@ Main {
 
       response = Scalr.send(action, options)
       return if generic_error(response)
-      
+
       puts "Result: #{response.content}"
     end
-    
+
   end
 
   mode 'applications' do
     def run
       response = Scalr.dm_applications_list
-      return if generic_error(response) 
-      pat = build_pattern(response.content, [:name, :id, :source_id], 
+      return if generic_error(response)
+      pat = build_pattern(response.content, [:name, :id, :source_id],
                           "%-{name} [Application ID: %{id}] [Source ID: %{source_id}]")
       response.content.each do |item|
         puts sprintf(pat, item[:name], item[:id], item[:sourceid])
@@ -309,8 +416,8 @@ Main {
       pairs = read_pairs(params['pair'])
       if pairs.empty?
         raise "Must provide at least one key=value pair"
-      end      
-      pairs.each do |pair|        
+      end
+      pairs.each do |pair|
         response = Scalr.global_variable_set(farm_id: farm_id, param_name: pair[0], param_value: pair[1])
         pair_display = pair.join("=")
         if response.success?
