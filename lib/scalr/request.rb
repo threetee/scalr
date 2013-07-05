@@ -298,7 +298,15 @@ module Scalr
         :weight                         => 'Weight',
         :zone_name                      => 'ZoneName'
     }
-    
+
+    def self.action(name)
+      ACTIONS[name.to_sym]
+    end
+
+    def self.input(name)
+      INPUTS[name.to_sym]
+    end
+
     attr_accessor :inputs, :endpoint, :access_key, :signature
     
     def initialize(action, endpoint, key_id, access_key, version, *arguments)
