@@ -35,6 +35,7 @@ FARM_ALIASES = {
 
 
 def generic_error(response)
+  return true unless response
   return false if response.success?
   puts "Error! [Code: #{response.code}] [Message: #{response.error}]"
   true
@@ -56,11 +57,21 @@ def resolve_farm_status(status)
   return "UNKNOWN - #{status}"
 end
 
+def resolve_log_severity(level)
+  level = level.to_i
+  return 'DEBUG'   if level == 1
+  return 'INFO'    if level == 2
+  return 'WARNING' if level == 3
+  return 'ERROR'   if level == 4
+  return 'FATAL'   if level == 5
+  "UNKNOWN (#{level})"
+end
+
 # example of data structure: http://wiki.scalr.com/display/docs/FarmGetDetails
 def show_role(role_info)
   servers = role_info[:serverset].nil? ? ['None'] : show_servers(role_info[:serverset])
   <<-ROLEINFO
-  #{role_info[:name]}
+  ROLE: #{role_info[:name]}
     Farm role ID:  #{role_info[:id]}  (Role ID: #{role_info[:role_id] || 'N/A'})
     Scaling:       #{show_scaling(role_info)}
     Instance type: #{role_info[:platformproperties][:instancetype]}
@@ -156,7 +167,16 @@ def dispatch(action_name, params)
   request_info = Scalr::Request.action(action_name)
   raise "Unknown action [Given: #{action_name.to_s}]" unless request_info
   options = collect_options(request_info[:inputs].keys, params)
-  Scalr.send(action_name, options)
+  scalr_call(action_name, options)
+end
+
+def scalr_call(action_name, options = {})
+  begin
+    Scalr.send(action_name, options)
+  rescue Scalr::Request::InvalidInputError => e
+    puts "ERROR: #{e.message}"
+    nil
+  end
 end
 
 # implementation notes:
@@ -170,6 +190,9 @@ Main {
   Command-line interface for Scalr, with TTM-specific additions. See README.md for more.
   DESC
 
+
+  ########## Deployment
+
   mode 'deploy:log' do
     option 'task' do
       argument :required
@@ -181,7 +204,7 @@ Main {
 
       response.content.each do |log_item|
         time = Time.at(log_item[:timestamp].to_i).strftime('%H:%M:%S')
-        message = log_item[:message].gsub( /[\r\n]/, '').rstrip
+        message = log_item[:message].gsub( /[\r\n]/, ' ').rstrip
         puts "#{time} - #{message}"
       end
     end
@@ -195,7 +218,6 @@ Main {
     def run
       response = dispatch(:dm_deployment_task_get_status, params)
       return if generic_error(response)
-
       puts "Status: #{response.content}"
     end
   end
@@ -285,6 +307,43 @@ Main {
     end
   end
 
+  mode 'logs:list' do
+    option 'farm' do
+      argument :required
+    end
+    option 'server' do
+      argument :optional
+    end
+    option 'start' do
+      argument :optional
+    end
+    option 'limit' do
+      argument :optional
+    end
+
+    # TODO: add option for quieting/verbosing log messages; filtering on script name
+
+    def run
+      response = dispatch(:logs_list, params)
+      return if generic_error(response)
+
+      if response.value[:totalrecords] == 0
+        puts 'No log records'
+        return
+      end
+
+      # each record has: message, severity, timestamp, source, serverid
+      pat = build_pattern(response.content, [:source], '%s - %-{source} - [Severity: %s]')
+      response.content.each do |log_item|
+        time = Time.at(log_item[:timestamp].to_i).strftime('%d %b %H:%M:%S')
+        message = log_item[:message].nil? ? '' : log_item[:message].strip
+        source = log_item[:source] || 'N/A'
+        puts sprintf(pat, time, source, resolve_log_severity(log_item[:severity]))
+        puts message
+      end
+    end
+  end
+
   mode 'launch' do
     description 'Launch a Farm or Server'
 
@@ -308,7 +367,8 @@ Main {
         raise "Must provide either 'farm' or 'role' to launch"
       end
 
-      response = Scalr.send(action, options)
+
+      response = scalr_call(action, options)
       return if generic_error(response)
 
       if action == :farm_launch
@@ -343,7 +403,7 @@ Main {
         raise "Must provide either 'farm' or 'server' to terminate"
       end
 
-      response = Scalr.send(action, options)
+      response = scalr_call(action, options)
       return if generic_error(response)
 
       puts "Result: #{response.content}"
@@ -352,7 +412,7 @@ Main {
 
   mode 'applications' do
     def run
-      response = Scalr.dm_applications_list
+      response = scalr_call(:dm_applications_list)
       return if generic_error(response)
       pat = build_pattern(response.content, [:name, :id, :source_id],
                           "%-{name} [Application ID: %{id}] [Source ID: %{source_id}]")
@@ -372,12 +432,8 @@ Main {
       response = dispatch(:farm_get_details, params)
       return if generic_error(response)
 
-      if response.content.instance_of?(Array)
-        response.content.each do |role_info|
-          puts show_role(role_info)
-        end
-      else
-        puts show_role(response.content)
+      response.content.each do |role_info|
+        puts show_role(role_info)
       end
     end
   end
@@ -386,7 +442,7 @@ Main {
     description 'List all farms'
 
     def run
-      response = Scalr.farms_list
+      response = scalr_call(:farms_list)
       return if generic_error(response)
 
       pat = build_pattern(response.content, [:id, :name, :status], '%{id}: %-{name} %{status}')
@@ -443,17 +499,20 @@ Main {
 
     argument 'pair' do
       arity -1
-      description "Key=value pairs for assignment; example: TTM_HEADPHONES=sennheiser. May also pass a filename of key/value pairs, one per line -- output of config:get works fine"
+      description <<-PAIRS
+      Key=value pairs for assignment; example: TTM_HEADPHONES=sennheiser. May also pass a filename
+      of key/value pairs, one per line -- for example, output of 'config:get' works fine.
+      PAIRS
     end
 
     def run
-      options = collect_options([:farm_id], params)
+      options = collect_options([:farm_id, :farm_role_id], params)
       pairs = read_pairs(params['pair'])
       if pairs.empty?
         raise 'Must provide at least one key=value pair'
       end
       pairs.each do |pair|
-        response = Scalr.global_variable_set(options.merge(param_name: pair[0], param_value: pair[1]))
+        response = scalr_call(:global_variable_set, options.merge(param_name: pair[0], param_value: pair[1]))
         pair_display = pair.join('=')
         if response.success?
           puts "OK #{pair_display}"
