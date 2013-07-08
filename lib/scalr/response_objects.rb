@@ -39,23 +39,7 @@ module Scalr
       end
     end
 
-    class Scaling < StructWithOptions.new(:min_instances, :max_instances)
-    end
-
-    class Platform < StructWithOptions.new(:instance_type, :availability_zone)
-    end
-
-    class Server < StructWithOptions.new(:server_id, :external_ip, :internal_ip, :status,
-                                         :index, :uptime, :platform_properties)
-      def self.components
-        { platformproperties: {name: :platform_properties, clazz: Scalr::ResponseObject::Platform} }
-      end
-
-      def self.build(data)
-        obj = super(data)
-        obj.index = obj.index.to_i if obj.index
-        obj
-      end
+    class Application < StructWithOptions.new(:id, :name, :source_id)
     end
 
     class DeploymentTaskItem < StructWithOptions.new(:server_id, :task_id, :farm_role_id, :remote_path, :status)
@@ -112,6 +96,25 @@ module Scalr
       # },
       # :cloudlocation=>"us-east-1", :isscalingenabled=>"1", :scalingalgorithmset=>nil
       #}
+    end
+
+    class Platform < StructWithOptions.new(:instance_type, :availability_zone)
+    end
+
+    class Scaling < StructWithOptions.new(:min_instances, :max_instances)
+    end
+
+    class Server < StructWithOptions.new(:server_id, :external_ip, :internal_ip, :status,
+                                         :index, :uptime, :platform_properties)
+      def self.components
+        { platformproperties: {name: :platform_properties, clazz: Scalr::ResponseObject::Platform} }
+      end
+
+      def self.build(data)
+        obj = super(data)
+        obj.index = obj.index.to_i if obj.index
+        obj
+      end
     end
 
   end

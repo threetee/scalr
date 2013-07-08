@@ -489,6 +489,9 @@ Main {
       if action.nil?
         raise "Must provide either 'farm' or 'server' to terminate"
       end
+      if action == :farm_terminate
+        raise "Sorry, Andre won't let us run this yet!"
+      end
 
       response = scalr_call(action, options)
       return if generic_error(response)
@@ -502,9 +505,9 @@ Main {
       response = scalr_call(:dm_applications_list)
       return if generic_error(response)
       pat = build_pattern(response.content, [:name, :id, :source_id],
-                          "%-{name} [Application ID: %{id}] [Source ID: %{source_id}]")
+                          "%-{name} [Application ID: %{id}] [Source ID: %s]")
       response.content.each do |item|
-        puts sprintf(pat, item[:name], item[:id], item[:sourceid])
+        puts sprintf(pat, item.name, item.id, item.source_id)
       end
     end
   end

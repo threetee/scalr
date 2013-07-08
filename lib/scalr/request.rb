@@ -87,7 +87,7 @@ module Scalr
       :dm_applications_list => {
           :name => 'DmApplicationsList', :version => V230,
           :inputs => {},
-          :outputs => { :path => 'applicationset@item' }
+          :outputs => { :path => 'applicationset@item', :object => Scalr::ResponseObject::Application }
       },
       :dm_deployment_task_get_log => {
           :name => 'DmDeploymentTaskGetLog', :version => V230,
