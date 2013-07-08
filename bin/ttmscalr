@@ -10,15 +10,18 @@ require 'pathname'
 bin_path = Pathname.new(__FILE__).realpath
 
 # add self to libpath
-$:.unshift File.expand_path("../../lib", bin_path)
+$:.unshift File.expand_path('../../lib', bin_path)
 
 require 'date'
+require 'json'
 require 'main'
 require 'scalr'
 require 'scalr/ttm'
 
 Scalr.read_access_info
 #Scalr.debug = $stdout
+
+ALIAS_FILE = '~/.ttm_scalr_aliases.json'
 
 # hardcoded (a) they shouldn't change, and (b) we're only using them for convenient aliasing
 FARM_ALIASES = {
@@ -33,6 +36,44 @@ FARM_ALIASES = {
   '15275' => [ 'Review', 'ttm-review', 'ttm-staging' ]
 }
 
+def farm_aliases
+  read_aliases unless @farm_aliases
+  @farm_aliases
+end
+
+# aliases stored in ~/.ttmscalr_aliases as JSON
+# format:
+#   'farm_aliases': {
+#     'id': ['name', 'name'...]
+#   },
+#   'farm_role_aliases': {
+#     'id' : ['name', 'name'...]
+#   }
+def read_aliases
+  alias_path = File.expand_path(ALIAS_FILE)
+  if File.exists?(alias_path)
+    all_aliases = JSON.parse(IO.read(alias_path))
+    @farm_aliases      = all_aliases['farm_aliases'] || {}
+    @farm_role_aliases = all_aliases['farm_role_aliases'] || {}
+  else
+    @farm_aliases      = FARM_ALIASES
+    @farm_role_aliases = {}
+  end
+  downcase_values = ->((_,v)) {v.collect! {|name| name.downcase}}
+  @farm_aliases.each &downcase_values
+  @farm_role_aliases.each &downcase_values
+end
+
+def farm_role_aliases
+  read_aliases unless @farm_role_aliases
+  @farm_role_aliases
+end
+
+def match_alias(alias_map, name)
+  name_compare = name.downcase
+  mapped = alias_map.find {|_, aliases| aliases.include?(name_compare)}
+  mapped.empty? ? name : mapped.first
+end
 
 def generic_error(response)
   return true unless response
@@ -42,11 +83,8 @@ def generic_error(response)
 end
 
 def resolve_farm(name)
-  return name if FARM_ALIASES.keys.include? name
-  FARM_ALIASES.each do |farm_id, aliases|
-    return farm_id if aliases.include? name
-  end
-  name # just assume we haven't hardcoded yet...
+  return name if name.match(/^\d+$/) || farm_aliases.keys.include?(name)
+  match_alias(farm_aliases, name)
 end
 
 def resolve_farm_status(status)
@@ -65,6 +103,23 @@ def resolve_log_severity(level)
   return 'ERROR'   if level == 4
   return 'FATAL'   if level == 5
   "UNKNOWN (#{level})"
+end
+
+# returns an array of farm role IDs
+def resolve_farm_role(name, params)
+  role_names = []
+  if farm_role_aliases.keys.include?(name)
+    role_names << name
+  elsif name != 'all'
+    role_names << match_alias(farm_role_aliases, name)
+  end
+
+  response = dispatch(:farm_get_details, params)
+  return [] unless response.success?
+
+  response.content.
+      find_all {|role_info| name == 'all' || role_names.include?(role_info[:name])}.
+      map {|role_info| role_info[:id]}
 end
 
 # example of data structure: http://wiki.scalr.com/display/docs/FarmGetDetails
@@ -134,17 +189,16 @@ def collect_options(api_names, params)
   options = {}
   api_names.each do |api_name|
     cli_name = map_parameter_key(api_name)
-    value = transform_value(api_name, first_value_for(params, cli_name, api_name))
+    first_value = first_value_for(params, cli_name, api_name)
+    value = transform_value(api_name, first_value, params)
     options[api_name] = value if value
   end
   options
 end
 
-# Note that we're using params.find vs params['name'] because
-# the latter kills the program (weird!)
 def first_value_for(params, *keys)
   keys.each do |key|
-    option = params.find {|param| param.name.to_s == key.to_s}
+    option = option_by_name(params, key)
     if option
       value = option.values.length > 1 ? option.values : option.value
       return value if value
@@ -153,14 +207,26 @@ def first_value_for(params, *keys)
   nil
 end
 
+# Note that we're using params.find vs params['name'] because
+# the latter kills the program (weird!)
+def option_by_name(params, name)
+  params.find {|option| option.name.to_s == name.to_s}
+end
+
 # allow transformations/lookups of data from the user
-def transform_value(name, value)
+def transform_value(name, value, params)
   if name == :farm_id && ! value.nil?
     resolve_farm(value)
+  elsif name == :farm_role_id && option_by_name(params, 'farm') && ! value.nil?
+    roles = resolve_farm_role(value, params)
+    if roles.empty?
+      raise "Cannot resolve farm role [Farm: #{params['farm'].value}] [Role: #{value}]"
+    else
+      roles.first
+    end
   else
     value
   end
-
 end
 
 def dispatch(action_name, params)
@@ -180,9 +246,9 @@ def scalr_call(action_name, options = {})
 end
 
 # implementation notes:
-# - Main seems to dispatch on mode-names in first-match order. So if you
-#   have a mode 'deploy' before a mode 'deploy:log', the latter will never
-#   get invoked. So least-specific modes should be after most-specific.
+# - Main seems to dispatch on mode-names in first-match order. So you'll need
+#   to have a mode 'deploy' before a mode 'deploy:log', otherwise it will never
+#   get invoked. So least-specific modes should be before most-specific.
 
 Main {
 
@@ -193,6 +259,32 @@ Main {
 
   ########## Deployment
 
+  mode 'deploy' do
+    option 'application' do
+      argument :required
+      description 'ID of application to deploy'
+    end
+    option 'farm' do
+      argument :optional
+      description 'Farm to use when resolving role (if aliased)'
+    end
+    option 'path' do
+      argument :optional
+      description 'Path to which the application will be deployed'
+    end
+    option 'role' do
+      argument :required
+      description 'ID/alias of farm role to which we will deploy the application'
+    end
+
+    def run
+      response = dispatch(:dm_application_deploy, params)
+      return if generic_error(response)
+
+      puts response.inspect
+    end
+  end
+
   mode 'deploy:log' do
     option 'task' do
       argument :required
@@ -202,7 +294,13 @@ Main {
       response = dispatch(:dm_deployment_task_get_log, params)
       return if generic_error(response)
 
+      if response.value[:totalrecords].to_i == 0
+        puts 'No log records'
+        return
+      end
+
       response.content.each do |log_item|
+        next if log_item.nil?
         time = Time.at(log_item[:timestamp].to_i).strftime('%H:%M:%S')
         message = log_item[:message].gsub( /[\r\n]/, ' ').rstrip
         puts "#{time} - #{message}"
@@ -227,6 +325,10 @@ Main {
       argument :optional
       description 'ID of application'
     end
+    option 'farm' do
+      argument :optional
+      description 'ID of farm role'
+    end
     option 'role' do
       argument :optional
       description 'ID of farm role'
@@ -249,28 +351,6 @@ Main {
     end
   end
 
-  mode 'deploy' do
-    option 'application' do
-      argument :required
-      description 'ID of application to deploy'
-    end
-    option 'path' do
-      argument :optional
-      description 'Path to which the application will be deployed'
-    end
-    option 'role' do
-      argument :required
-      description 'ID of farm role to which we will deploy the application'
-    end
-
-    def run
-      response = dispatch(:dm_application_deploy, params)
-      return if generic_error(response)
-
-      puts response.inspect
-    end
-  end
-
   mode 'logs:script' do
     option 'farm' do
       argument :required
@@ -284,12 +364,17 @@ Main {
     option 'limit' do
       argument :optional
     end
+    option 'expand' do
+      argument :optional
+    end
 
-    # TODO: add option for quieting/verbosing log messages; filtering on script name
+    # TODO: add option for quieting/verbosing log messages
 
     def run
       response = dispatch(:script_logs_list, params)
       return if generic_error(response)
+
+      expand_script = params['expand'].given? ? params['expand'].value : nil
 
       # each record has: message, timestamp, scriptname, exectime, execexitcode, event, serverid
       pat = build_pattern(response.content, [:scriptname, :execexitcode, :exectime],
@@ -300,7 +385,7 @@ Main {
         from_event = log_item[:event] || 'N/A'
         puts sprintf(pat, time, log_item[:scriptname], log_item[:execexitcode],
                           log_item[:exectime], from_event)
-        if log_item[:execexitcode].to_i != 0
+        if log_item[:execexitcode].to_i != 0 || ( expand_script && expand_script == log_item[:scriptname])
           puts message, "\n\n"
         end
       end
@@ -321,13 +406,13 @@ Main {
       argument :optional
     end
 
-    # TODO: add option for quieting/verbosing log messages; filtering on script name
+    # TODO: add option for quieting/verbosing log messages; filtering on source name
 
     def run
       response = dispatch(:logs_list, params)
       return if generic_error(response)
 
-      if response.value[:totalrecords] == 0
+      if response.value[:totalrecords].to_i == 0
         puts 'No log records'
         return
       end
