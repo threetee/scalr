@@ -82,7 +82,7 @@ module Scalr
           :name => 'DmApplicationDeploy', :version => V230,
           :inputs => {:application_id => true, :farm_role_id => true, :remote_path => true},
           :defaults => { :remote_path => '/var/www' },
-          :outputs => { :path => 'deploymenttasksset@item' }
+          :outputs => { :path => 'deploymenttasksset@item', :object => Scalr::ResponseObject::DeploymentTaskItem }
       },
       :dm_applications_list => {
           :name => 'DmApplicationsList', :version => V230,
@@ -158,7 +158,7 @@ module Scalr
       :farm_get_details => {
           :name => 'FarmGetDetails', :version => V230,
           :inputs => {:farm_id => true},
-          :outputs => { :path => 'farmroleset@item' }
+          :outputs => { :path => 'farmroleset@item', :object => Scalr::ResponseObject::FarmRole }
       },
       :farm_get_stats => {
           :name => 'FarmGetStats', :version => V200,

@@ -2,7 +2,8 @@ require 'rexml/document'
 
 module Scalr
   class Response
-    
+    require_relative './response_objects'
+
     attr_accessor :code, :content, :error, :message, :transaction_id, :value
       
     def initialize(response, data, request_metadata)
@@ -52,8 +53,20 @@ private
       # coerce our value into an array if it has only one value
       if output_path.include?('@') && ! current_value.instance_of?(Array)
         current_value = [ current_value ]
-      end        
-      [current_value, transaction_id]
+      end
+
+      if clazz = request_metadata[:outputs][:object]
+        if current_value.instance_of?(Array)
+          translated = current_value.map{|item_data| clazz.build(item_data)}
+        else
+          translated = clazz.build(current_value)
+        end
+        [translated, transaction_id]
+      else
+        [current_value, transaction_id]
+      end
+
+
     end
   end
 end

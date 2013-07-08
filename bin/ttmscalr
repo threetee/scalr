@@ -92,7 +92,7 @@ def resolve_farm_status(status)
   return 'TERMINATED'    if status == 0
   return 'TERMINATING'   if status == 2
   return 'SYNCHRONIZING' if status == 3
-  return "UNKNOWN - #{status}"
+  "UNKNOWN - #{status}"
 end
 
 def resolve_log_severity(level)
@@ -123,13 +123,13 @@ def resolve_farm_role(name, params)
 end
 
 # example of data structure: http://wiki.scalr.com/display/docs/FarmGetDetails
-def show_role(role_info)
-  servers = role_info[:serverset].nil? ? ['None'] : show_servers(role_info[:serverset])
+def show_role(farm_role)
+  servers = farm_role.servers.empty? ? ['None'] : show_servers(farm_role.servers)
   <<-ROLEINFO
-  ROLE: #{role_info[:name]}
-    Farm role ID:  #{role_info[:id]}  (Role ID: #{role_info[:role_id] || 'N/A'})
-    Scaling:       #{show_scaling(role_info)}
-    Instance type: #{role_info[:platformproperties][:instancetype]}
+  ROLE: #{farm_role.name}
+    Farm role ID:  #{farm_role.id}  (Role ID: #{farm_role.role_id || 'N/A'})
+    Scaling:       #{show_scaling(farm_role)}
+    Instance type: #{farm_role.platform_properties.instance_type}
     Servers:
       #{servers.join("\n      ")}
   ROLEINFO
@@ -143,27 +143,29 @@ def build_pattern(items, keys, template)
   template
 end
 
+def item_length(item)
+  item.instance_of?(Fixnum) ? item.to_s.length : item.length
+end
+
 def scan_lengths(items, keys)
-  Hash[ keys.map {|key| [key, items.map {|item| item[key].nil? ? 0 : item[key].length }.max ]} ]
+  Hash[ keys.map {|key| [key, items.map {|item| item[key].nil? ? 0 : item_length(item[key]) }.max ]} ]
 end
 
 def show_scaling(info)
-  return '' unless info[:scalingproperties] && info[:isscalingenabled]
-  p = info[:scalingproperties]
-  if info[:isscalingenabled].to_i > 0
-    "YES [Range: #{p[:mininstances]}-#{p[:maxinstances]}]"
+  return '' unless info.scaling_properties && info.is_scaling
+  p = info.scaling_properties
+  if info.is_scaling.to_i > 0
+    "YES [Range: #{p.min_instances}-#{p.max_instances}]"
   else
     "NO"
   end
 end
 
-def show_servers(server_items)
-  return ['None'] unless server_items[:item]
-  servers = server_items[:item].instance_of?(Array) ? server_items[:item] : [server_items[:item]]
-  pat = build_pattern(servers, [:index, :status, :uptime, :serverid],
-                      '#%-{index}. %{status} - Uptime %{uptime} - %{serverid}')
-  servers.sort_by{|info| info[:index]}.map do |info|
-    sprintf(pat, info[:index], info[:status], info[:uptime], info[:serverid])
+def show_servers(servers)
+  pat = build_pattern(servers, [:index, :status, :uptime, :server_id],
+                      '#%-{index}. %{status} - Uptime %{uptime} - %{server_id}')
+  servers.sort_by{|info| info.index}.map do |info|
+    sprintf(pat, info.index, info.status, info.uptime, info.server_id)
   end
 end
 
@@ -517,8 +519,10 @@ Main {
       response = dispatch(:farm_get_details, params)
       return if generic_error(response)
 
-      response.content.each do |role_info|
-        puts show_role(role_info)
+      #puts response.inspect
+
+      response.content.each do |farm_role|
+        puts show_role(farm_role)
       end
     end
   end
