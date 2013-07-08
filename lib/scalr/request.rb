@@ -336,7 +336,7 @@ module Scalr
         raise InvalidInputError.new unless input_hash.is_a? Hash
 
         # assign defaults
-        ACTIONS[action][:inputs].each do |key, required|
+        ACTIONS[action][:inputs].each do |key, _|
           next unless input_hash[key].nil? && ACTIONS[action][:defaults] && ACTIONS[action][:defaults][key]
           input_hash[key] = ACTIONS[action][:defaults][key]
         end
