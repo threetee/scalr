@@ -112,6 +112,14 @@ module Scalr
         obj.timestamp = obj.parse_timestamp(obj.timestamp)
         obj
       end
+
+      def matches_source(match_source)
+        match_source && (match_source == 'all' || match_source == '*' || match_source == source || source.nil?)
+      end
+
+      def timestamp_formatted
+        format_timestamp(timestamp)
+      end
     end
 
     class Platform < StructWithOptions.new(:instance_type, :availability_zone)

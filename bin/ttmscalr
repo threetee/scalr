@@ -413,6 +413,10 @@ Main {
     option 'limit' do
       argument :optional
     end
+    option 'source' do
+      argument :optional
+      default 'all'
+    end
     option 'verbose' do
       argument :optional
       cast :bool
@@ -433,10 +437,10 @@ Main {
       # each record has: message, severity, timestamp, source, serverid
       pat = build_pattern(response.content, [:source], '%s - %-{source} - [Severity: %s]')
       response.content.each do |log_item|
-        time = Time.at(log_item[:timestamp].to_i).strftime('%d %b %H:%M:%S')
-        message = log_item[:message].nil? ? '' : log_item[:message].strip
-        source = log_item[:source] || 'N/A'
-        puts sprintf(pat, time, source, resolve_log_severity(log_item[:severity]))
+        next unless log_item.matches_source(params['source'].value)
+        message = log_item.message.nil? ? '' : log_item.message.strip
+        source = log_item.source || 'N/A'
+        puts sprintf(pat, log_item.timestamp_formatted, source, resolve_log_severity(log_item[:severity]))
         puts message if params['verbose'].value
       end
     end
