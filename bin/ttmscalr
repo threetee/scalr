@@ -25,11 +25,11 @@ ALIAS_FILE = '~/.ttm_scalr_aliases.json'
 
 # hardcoded (a) they shouldn't change, and (b) we're only using them for convenient aliasing
 FARM_ALIASES = {
-  '14433' => [ 'Prod-DB-Primary' ],
-  '14460' => [ 'Prod-DB-Shard1' ],
-  '14462' => [ 'Prod-DB-Shard2' ],
-  '14463' => [ 'Prod-DB-Shard3' ],
-  '14464' => [ 'Prod-DB-Shard4' ],
+  '14433' => [ 'Prod-DB-Primary', 'db-master' ],
+  '14460' => [ 'Prod-DB-Shard1', 'db1' ],
+  '14462' => [ 'Prod-DB-Shard2', 'db2' ],
+  '14463' => [ 'Prod-DB-Shard3', 'db3' ],
+  '14464' => [ 'Prod-DB-Shard4', 'db4' ],
   '14498' => [ 'Production', 'ttm-production' ],
   '15163' => [ 'DB-Test' ],
   '15274' => [ 'PG-TEST' ],
@@ -144,7 +144,7 @@ def build_pattern(items, keys, template)
 end
 
 def item_length(item)
-  item.instance_of?(Fixnum) ? item.to_s.length : item.length
+  item.instance_of?(Fixnum) || item.instance_of?(Float) ? item.to_s.length : item.length
 end
 
 def scan_lengths(items, keys)
@@ -345,10 +345,10 @@ Main {
       return if generic_error(response)
 
       # return: serverid, deploymenttaskid, farmroleid, remotepath, status (no time?!)
-      pat = build_pattern(response.content, [:deploymenttaskid, :farmroleid, :serverid, :status],
-                          '%-{deploymenttaskid} - %-{status} [Server: %s]')
+      pat = build_pattern(response.content, [:task_id, :server_id, :status],
+                          '%-{task_id} - %-{status} [Server: %s]')
       response.content.each do |task_item|
-        puts sprintf(pat, task_item[:deploymenttaskid], task_item[:status], task_item[:serverid])
+        puts sprintf(pat, task_item.task_id, task_item.status, task_item.server_id)
       end
     end
   end
@@ -369,8 +369,11 @@ Main {
     option 'expand' do
       argument :optional
     end
-
-    # TODO: add option for quieting/verbosing log messages
+    option 'verbose' do
+      argument :optional
+      cast :bool
+      default false
+    end
 
     def run
       response = dispatch(:script_logs_list, params)
@@ -378,16 +381,19 @@ Main {
 
       expand_script = params['expand'].given? ? params['expand'].value : nil
 
-      # each record has: message, timestamp, scriptname, exectime, execexitcode, event, serverid
-      pat = build_pattern(response.content, [:scriptname, :execexitcode, :exectime],
-                          '%s - %-{scriptname} - [Exit: %{execexitcode}] [Exec time: %{exectime}] [From event: %s]')
+      pat = build_pattern(response.content, [:script_name, :exit_code, :exec_time, :event],
+                          '%s - %-{script_name} - [Exit: %{exit_code}] [Exec time: %{exec_time}] [From event: %-{event}] [Server: %s]')
+      display_all = params['verbose'].value
+
+      puts "Script logs -- displaying #{display_all ? 'all records' : 'only failures'}", "\n"
+
       response.content.each do |log_item|
-        time = Time.at(log_item[:timestamp].to_i).strftime('%d %b %H:%M:%S')
-        message = log_item[:message].nil? ? '' : log_item[:message].strip
-        from_event = log_item[:event] || 'N/A'
-        puts sprintf(pat, time, log_item[:scriptname], log_item[:execexitcode],
-                          log_item[:exectime], from_event)
-        if log_item[:execexitcode].to_i != 0 || ( expand_script && expand_script == log_item[:scriptname])
+        next unless log_item.failure? || display_all
+        message = log_item.message.nil? ? '' : log_item.message.strip
+        from_event = log_item.event || 'N/A'
+        puts sprintf(pat, log_item.timestamp_formatted, log_item.script_name, log_item.exit_code,
+                          log_item.exec_time, from_event, log_item.server_id)
+        if log_item.failure? || log_item.script_matches(expand_script)
           puts message, "\n\n"
         end
       end
@@ -406,6 +412,11 @@ Main {
     end
     option 'limit' do
       argument :optional
+    end
+    option 'verbose' do
+      argument :optional
+      cast :bool
+      default false
     end
 
     # TODO: add option for quieting/verbosing log messages; filtering on source name
@@ -426,7 +437,7 @@ Main {
         message = log_item[:message].nil? ? '' : log_item[:message].strip
         source = log_item[:source] || 'N/A'
         puts sprintf(pat, time, source, resolve_log_severity(log_item[:severity]))
-        puts message
+        puts message if params['verbose'].value
       end
     end
   end
@@ -445,7 +456,6 @@ Main {
     end
 
     def run
-
       options = collect_options([:farm_id, :farm_role_id], params)
       action = nil
       action = :farm_launch   if options[:farm_id]
@@ -505,7 +515,7 @@ Main {
       response = scalr_call(:dm_applications_list)
       return if generic_error(response)
       pat = build_pattern(response.content, [:name, :id, :source_id],
-                          "%-{name} [Application ID: %{id}] [Source ID: %s]")
+                          '%-{name} [Application ID: %{id}] [Source ID: %s]')
       response.content.each do |item|
         puts sprintf(pat, item.name, item.id, item.source_id)
       end
@@ -521,8 +531,6 @@ Main {
     def run
       response = dispatch(:farm_get_details, params)
       return if generic_error(response)
-
-      #puts response.inspect
 
       response.content.each do |farm_role|
         puts show_role(farm_role)

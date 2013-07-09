@@ -37,6 +37,14 @@ module Scalr
         super(*args)
         opts.each_pair{|k, v| self.send "#{k}=", v}
       end
+
+      def parse_timestamp(epoch_seconds)
+        Time.at(epoch_seconds.to_i)
+      end
+
+      def format_timestamp(timestamp)
+        timestamp.strftime('%d %b %H:%M:%S')
+      end
     end
 
     class Application < StructWithOptions.new(:id, :name, :source_id)
@@ -98,10 +106,49 @@ module Scalr
       #}
     end
 
+    class LogItem < StructWithOptions.new(:message, :server_id, :severity, :source, :timestamp)
+      def self.build(data)
+        obj = super(data)
+        obj.timestamp = obj.parse_timestamp(obj.timestamp)
+        obj
+      end
+    end
+
     class Platform < StructWithOptions.new(:instance_type, :availability_zone)
     end
 
     class Scaling < StructWithOptions.new(:min_instances, :max_instances)
+    end
+
+    class ScriptLogItem < StructWithOptions.new(:event, :exec_time, :exit_code, :message, :script_name,
+                                                :server_id, :severity, :timestamp)
+      def self.fields
+        super.merge(execexitcode: :exit_code)
+      end
+
+      def self.build(data)
+        obj = super(data)
+        obj.exec_time = obj.exit_code.to_f if obj.exec_time
+        obj.exit_code = obj.exit_code.to_i if obj.exit_code
+        obj.timestamp = obj.parse_timestamp(obj.timestamp)
+        obj
+      end
+
+      def failure?
+        !success?
+      end
+
+      def script_matches(match_script)
+        match_script && (match_script == 'all' || match_script == '*' || match_script == script_name)
+      end
+
+      def success?
+        exit_code == 0
+      end
+
+      def timestamp_formatted
+        format_timestamp(timestamp)
+      end
     end
 
     class Server < StructWithOptions.new(:server_id, :external_ip, :internal_ip, :status,

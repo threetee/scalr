@@ -92,7 +92,7 @@ module Scalr
       :dm_deployment_task_get_log => {
           :name => 'DmDeploymentTaskGetLog', :version => V230,
           :inputs => { :deployment_task_id => true },
-          :outputs => { :path => 'logset@item' } 
+          :outputs => { :path => 'logset@item'}#, :object => Scalr::ResponseObject::LogItem }
       },
       :dm_deployment_task_get_status => {
         :name => 'DmDeploymentTaskGetStatus', :version => V230,
@@ -102,7 +102,7 @@ module Scalr
       :dm_deployment_tasks_list => {
         :name => 'DmDeploymentTasksList', :version => V230,
         :inputs => { :application_id => false, :farm_role_id => false, :remote_path => false },
-        :outputs => { :path => 'deploymenttasksset@item' } 
+        :outputs => { :path => 'deploymenttasksset@item', :object => Scalr::ResponseObject::DeploymentTaskItem }
       },
       :dm_source_create => {
           :name => 'DmSourceCreate', :version => V230,
@@ -214,7 +214,7 @@ module Scalr
       :script_logs_list => {
         :name => 'ScriptingLogsList', :version => V230,
         :inputs => {:farm_id => true, :server_id => false, :start_from => false, :records_limit => false},
-        :outputs => { :path => 'logset@item' }
+        :outputs => { :path => 'logset@item', :object => Scalr::ResponseObject::ScriptLogItem }
       },
       :scripts_list => {
           :name => 'ScriptsList', :version => V200,
