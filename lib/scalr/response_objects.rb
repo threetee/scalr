@@ -220,10 +220,14 @@ module Scalr
       end
     end
 
-    class Server < StructWithOptions.new(:server_id, :external_ip, :internal_ip, :status,
+    class Server < StructWithOptions.new(:id, :external_ip, :internal_ip, :status,
                                          :index, :uptime, :platform_properties)
       def self.components
         { platformproperties: {name: :platform_properties, clazz: Scalr::ResponseObject::Platform} }
+      end
+
+      def self.fields
+        super.merge(serverid: :id)
       end
 
       def self.build(data)

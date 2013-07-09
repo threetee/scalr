@@ -193,7 +193,7 @@ module Scalr
       :logs_list => {
           :name => 'LogsList', :version => V200,
           :inputs => {:farm_id => true, :server_id => false, :start_from => false, :records_limit => false},
-          :outputs => { :path => 'logset@item', :object => Scalr::ResponseObject:: }
+          :outputs => { :path => 'logset@item', :object => Scalr::ResponseObject::LogItem }
       },
       :roles_list => {
           :name => 'RolesList', :version => V200,

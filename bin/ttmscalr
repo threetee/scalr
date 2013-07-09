@@ -144,10 +144,10 @@ def show_scaling(info)
 end
 
 def show_servers(servers)
-  pat = build_pattern(servers, [:index, :status, :uptime, :server_id],
-                      '#%-{index}. %{status} - Uptime %{uptime} - %{server_id}')
+  pat = build_pattern(servers, [:index, :status, :uptime, :id],
+                      '#%-{index}. %{status} - Uptime %{uptime} - %{id}')
   servers.sort_by{|info| info.index}.map do |info|
-    sprintf(pat, info.index, info.status, info.uptime, info.server_id)
+    sprintf(pat, info.index, info.status, info.uptime, info.id)
   end
 end
 
@@ -654,6 +654,31 @@ Main {
       response.content.each do |script_item|
         next unless params['display_all'].value || script_item.ttm?
         puts sprintf(pat, script_item.id, script_item.name, script_item.description)
+      end
+    end
+  end
+
+  mode 'ssh' do
+    option 'farm' do
+      argument :required
+    end
+
+    option 'role' do
+      argument :required
+    end
+
+    option 'server' do
+      argument :required # use 'index' as shorthand for this...?
+    end
+
+    def run
+      response = dispatch(:farm_get_details, params)
+      return if generic_error(response)
+
+      response.content.each do |role|
+        role.servers.each do |server|
+          puts "ssh #{server.external_ip} (blah blah blah)" if server.id == params['server'].value
+        end
       end
     end
   end
