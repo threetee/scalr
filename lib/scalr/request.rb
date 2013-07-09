@@ -178,7 +178,7 @@ module Scalr
       :farms_list => {
           :name => 'FarmsList', :version => V200,
           :inputs => {},
-          :outputs => { :path => 'farmset@item'}
+          :outputs => { :path => 'farmset@item', :object => Scalr::ResponseObject::FarmSummary}
       },
       :global_variable_set => {
           :name => 'GlobalVariableSet', :version => V230,

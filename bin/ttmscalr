@@ -25,15 +25,15 @@ ALIAS_FILE = '~/.ttm_scalr_aliases.json'
 
 # hardcoded (a) they shouldn't change, and (b) we're only using them for convenient aliasing
 FARM_ALIASES = {
-  '14433' => [ 'Prod-DB-Primary', 'db-master' ],
-  '14460' => [ 'Prod-DB-Shard1', 'db1' ],
-  '14462' => [ 'Prod-DB-Shard2', 'db2' ],
-  '14463' => [ 'Prod-DB-Shard3', 'db3' ],
-  '14464' => [ 'Prod-DB-Shard4', 'db4' ],
-  '14498' => [ 'Production', 'ttm-production' ],
-  '15163' => [ 'DB-Test' ],
-  '15274' => [ 'PG-TEST' ],
-  '15275' => [ 'Review', 'ttm-review', 'ttm-staging' ]
+  '14433' => %w(Prod-DB-Primary db-master),
+  '14460' => %w(Prod-DB-Shard1 db1),
+  '14462' => %w(Prod-DB-Shard2 db2),
+  '14463' => %w(Prod-DB-Shard3 db3),
+  '14464' => %w(Prod-DB-Shard4 db4),
+  '14498' => %w(Production ttm-production),
+  '15163' => %w(DB-Test),
+  '15274' => %w(PG-TEST),
+  '15275' => %w(Review ttm-review ttm-staging)
 }
 
 def farm_aliases
@@ -354,7 +354,7 @@ Main {
     end
   end
 
-  mode 'logs:script' do
+  mode 'log:script' do
     option 'farm' do
       argument :required
     end
@@ -401,7 +401,7 @@ Main {
     end
   end
 
-  mode 'logs:list' do
+  mode 'log:list' do
     option 'farm' do
       argument :required
     end
@@ -515,7 +515,7 @@ Main {
     end
   end
 
-  mode 'applications' do
+  mode 'application:list' do
     def run
       response = scalr_call(:dm_applications_list)
       return if generic_error(response)
@@ -543,17 +543,16 @@ Main {
     end
   end
 
-  mode 'farms' do
+  mode 'farm:list' do
     description 'List all farms'
 
     def run
       response = scalr_call(:farms_list)
       return if generic_error(response)
 
-      pat = build_pattern(response.content, [:id, :name, :status], '%{id}: %-{name} %{status}')
+      pat = build_pattern(response.content, [:id, :name, :status], '%{id}: %-{name} - %s')
       response.content.each do |farm_info|
-        status = resolve_farm_status(farm_info[:status].to_i)
-        puts sprintf(pat, farm_info[:id], farm_info[:name], status)
+        puts sprintf(pat, farm_info.id, farm_info.name, farm_info.status_formatted)
       end
     end
   end

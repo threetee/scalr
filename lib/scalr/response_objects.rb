@@ -111,6 +111,23 @@ module Scalr
       #}
     end
 
+    class FarmSummary < StructWithOptions.new(:comments, :id, :name, :status)
+
+      def self.build(data)
+        obj = super(data)
+        obj.status = obj.status.to_i
+        obj
+      end
+
+      def status_formatted
+        return 'RUNNING'       if status == 1
+        return 'TERMINATED'    if status == 0
+        return 'TERMINATING'   if status == 2
+        return 'SYNCHRONIZING' if status == 3
+        "UNKNOWN - #{status}"
+      end
+    end
+
     class LogItem < StructWithOptions.new(:message, :server_id, :severity, :source, :timestamp)
       def self.build(data)
         obj = super(data)
