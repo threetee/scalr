@@ -32,10 +32,20 @@ module Scalr
         new(params)
       end
 
+      def self.translate_array(possible_array, translation_object)
+        return [] if possible_array.nil? || possible_array[:item].nil?
+        items = possible_array[:item].instance_of?(Array) ? possible_array[:item] : [possible_array[:item]]
+        items.map {|item_data| translation_object.build(item_data)}
+      end
+
       def initialize(*args)
         opts = args.last.is_a?(Hash) ? args.pop : {}
         super(*args)
         opts.each_pair{|k, v| self.send "#{k}=", v}
+      end
+
+      def parse_datestamp(date_string)
+        Time.parse(date_string)
       end
 
       def parse_timestamp(epoch_seconds)
@@ -48,6 +58,9 @@ module Scalr
     end
 
     class Application < StructWithOptions.new(:id, :name, :source_id)
+    end
+
+    class ConfigVariable < StructWithOptions.new(:name)
     end
 
     class DeploymentTaskItem < StructWithOptions.new(:server_id, :task_id, :farm_role_id, :remote_path, :status)
@@ -74,15 +87,7 @@ module Scalr
 
       def self.build(data)
         obj = super(data)
-        if data[:serverset].nil?
-          server_items = []
-        else
-          server_items = data[:serverset][:item].instance_of?(Array) ? data[:serverset][:item] : [data[:serverset][:item]]
-        end
-        obj.servers = server_items.map do |server_data|
-          #puts "   ...Adding server item: #{server_data.inspect}]"
-          Scalr::ResponseObject::Server.build(server_data)
-        end
+        obj.servers = self.translate_array(data[:serverset], Scalr::ResponseObject::Server)
         obj
       end
 
@@ -126,6 +131,35 @@ module Scalr
     end
 
     class Scaling < StructWithOptions.new(:min_instances, :max_instances)
+    end
+
+    class Script < StructWithOptions.new(:config_variables, :date, :revision)
+      def self.build(data)
+        obj = super(data)
+        obj.config_variables = self.translate_array(data[:configvariables], Scalr::ResponseObject::ConfigVariable)
+        obj.date = obj.parse_datestamp(obj.date)
+        obj
+      end
+
+      def config_variables_formatted(default = nil)
+        config_variables.empty? ? default : config_variables.map {|cv| cv.name}.join('; ')
+      end
+
+      def date_formatted
+        format_timestamp(self.date)
+      end
+
+      # [{:revision=>"1", :date=>"2013-06-17 15:50:59", :configvariables=>{:item => [{:name => '...'}]}}
+    end
+
+    class ScriptSummary < StructWithOptions.new(:description, :id, :latest_revision, :name)
+
+      def ttm?
+        name.match(/^TTM/)
+      end
+
+      # {:id=>"1", :name=>"SVN update",
+      #  :description=>"Update a working copy from SVN repository", :latestrevision=>"1"}
     end
 
     class ScriptLogItem < StructWithOptions.new(:event, :exec_time, :exit_code, :message, :script_name,

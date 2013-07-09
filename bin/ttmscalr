@@ -177,6 +177,7 @@ PARAM_ALIASES = {
     records_limit:      :limit,
     remote_path:        :path,
     farm_role_id:       :role,
+    script_id:          :script,
     server_id:          :server,
     start_from:         :start,
     deployment_task_id: :task,
@@ -639,6 +640,40 @@ Main {
       return nil if line =~ /^\s*#/ || line =~ /^\s*$/
       key, value = line.split( /\s*[\=\:]\s*/, 2)
       [key, value]
+    end
+  end
+
+  mode 'script' do
+    option 'script' do
+      argument :required
+    end
+
+    def run
+      response = dispatch(:script_get_details, params)
+      return if generic_error(response)
+
+      pat = build_pattern(response.content, [:revision], '%s, v%-{revision} - Config: %s')
+      response.content.reverse.each do |script_rev|
+        puts sprintf(pat, script_rev.date_formatted, script_rev.revision, script_rev.config_variables_formatted('none'))
+      end
+    end
+  end
+
+  mode 'script:list' do
+    option 'display_all' do
+      cast :bool
+      default false
+    end
+
+    def run
+      response = dispatch(:scripts_list, params)
+      return if generic_error(response)
+
+      pat = build_pattern(response.content, [:id, :description, :name], '%-{id} %-{name} - %s')
+      response.content.each do |script_item|
+        next unless params['display_all'].value || script_item.ttm?
+        puts sprintf(pat, script_item.id, script_item.name, script_item.description)
+      end
     end
   end
 }

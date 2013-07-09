@@ -209,7 +209,7 @@ module Scalr
       :script_get_details => {
           :name => 'ScriptGetDetails', :version => V200,
           :inputs => {:script_id => true},
-          :outputs => { :path => 'scriptrevisionset@item' }
+          :outputs => { :path => 'scriptrevisionset@item', :object => Scalr::ResponseObject::Script }
       },
       :script_logs_list => {
         :name => 'ScriptingLogsList', :version => V230,
@@ -219,7 +219,7 @@ module Scalr
       :scripts_list => {
           :name => 'ScriptsList', :version => V200,
           :inputs => {},
-          :outputs => { :path => 'scriptset@item' }
+          :outputs => { :path => 'scriptset@item', :object => Scalr::ResponseObject::ScriptSummary }
       },
       :server_image_create => {
           :name => 'ServerImageCreate', :version => V200,
