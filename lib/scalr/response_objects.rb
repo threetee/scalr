@@ -131,12 +131,22 @@ module Scalr
     class LogItem < StructWithOptions.new(:message, :server_id, :severity, :source, :timestamp)
       def self.build(data)
         obj = super(data)
+        obj.severity  = obj.severity.to_i
         obj.timestamp = obj.parse_timestamp(obj.timestamp)
         obj
       end
 
       def matches_source(match_source)
         match_source && (match_source == 'all' || match_source == '*' || match_source == source || source.nil?)
+      end
+
+      def severity_formatted
+        return 'DEBUG'   if severity == 1
+        return 'INFO'    if severity == 2
+        return 'WARNING' if severity == 3
+        return 'ERROR'   if severity == 4
+        return 'FATAL'   if severity == 5
+        "UNKNOWN (#{severity})"
       end
 
       def timestamp_formatted

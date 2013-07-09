@@ -87,24 +87,6 @@ def resolve_farm(name)
   match_alias(farm_aliases, name)
 end
 
-def resolve_farm_status(status)
-  return 'RUNNING'       if status == 1
-  return 'TERMINATED'    if status == 0
-  return 'TERMINATING'   if status == 2
-  return 'SYNCHRONIZING' if status == 3
-  "UNKNOWN - #{status}"
-end
-
-def resolve_log_severity(level)
-  level = level.to_i
-  return 'DEBUG'   if level == 1
-  return 'INFO'    if level == 2
-  return 'WARNING' if level == 3
-  return 'ERROR'   if level == 4
-  return 'FATAL'   if level == 5
-  "UNKNOWN (#{level})"
-end
-
 # returns an array of farm role IDs
 def resolve_farm_role(name, params)
   role_names = []
@@ -441,7 +423,7 @@ Main {
         next unless log_item.matches_source(params['source'].value)
         message = log_item.message.nil? ? '' : log_item.message.strip
         source = log_item.source || 'N/A'
-        puts sprintf(pat, log_item.timestamp_formatted, source, resolve_log_severity(log_item[:severity]))
+        puts sprintf(pat, log_item.timestamp_formatted, source, log_item.severity_formatted)
         puts message if params['verbose'].value
       end
     end
