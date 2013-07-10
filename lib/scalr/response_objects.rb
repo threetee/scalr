@@ -281,5 +281,16 @@ module Scalr
     class SourceItem < StructWithOptions.new(:auth_type, :id, :type, :url)
     end
 
+    class Variable < StructWithOptions.new(:name, :value)
+
+      def matches?(other_name)
+        name.downcase == other_name.downcase
+      end
+
+      def to_s
+        "#{name}=#{value}"
+      end
+    end
+
   end
 end

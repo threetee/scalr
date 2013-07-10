@@ -261,7 +261,7 @@ def transform_value(name, value, params)
     else
       roles.first
     end
-  elsif name == :server_id
+  elsif name == :server_id && ! value.nil?
     if match_info = value.match(/^(\w+)\.(\d+)$/) # heroku format
       role_name = match_info[1]
       server_index = match_info[2]
@@ -646,13 +646,14 @@ Main {
       if response.content.nil? || response.content.empty?
         puts 'NO CONFIG FOUND'
       elsif params['key'].value
-        found = response.content.detect {|pair| pair[:name] == params['key'].value}
+        found = response.content.detect {|pair| pair.matches?(params['key'].value)}
         if found
-          puts found[:value]
+          puts found.value
         end
       else
+        pat = build_pattern(response.content, [:name], '%-{name}: %s')
         response.content.each do |pair|
-          puts sprintf('%-25s: %s', pair[:name], pair[:value])
+          puts sprintf(pat, pair.name, pair.value)
         end
       end
     end
