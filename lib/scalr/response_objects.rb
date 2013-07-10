@@ -91,6 +91,10 @@ module Scalr
         obj
       end
 
+      def self.find_servers(roles, server_spec)
+        roles.map {|role| role.find_server(server_spec)}.compact
+      end
+
       # 'server_spec' could be an index (1), or role.index (rails.1)
       # will return a ::Server object if matching or nil (if not found)
       def find_server(server_spec)
@@ -272,6 +276,9 @@ module Scalr
       def terminated?
         status == 'Terminated'
       end
+    end
+
+    class SourceItem < StructWithOptions.new(:auth_type, :id, :type, :url)
     end
 
   end

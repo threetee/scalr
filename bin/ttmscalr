@@ -55,6 +55,8 @@ end
 #     'id' : ['name', 'name'...]
 #   }
 def read_aliases
+  return true if Scalr.has_aliases?('farm') && Scalr.has_aliases?('role')
+
   alias_path = File.expand_path(ALIAS_FILE)
   if File.exists?(alias_path)
     all_aliases = JSON.parse(IO.read(alias_path))
@@ -67,12 +69,7 @@ def read_aliases
 
   farm_aliases.each {|k,v| Scalr.add_alias('farm', k, v)}
   farm_role_aliases.each {|k,v| Scalr.add_alias('role', k, v)}
-end
-
-def match_alias(alias_map, name)
-  name_compare = name.downcase
-  mapped = alias_map.find {|_, aliases| aliases.include?(name_compare)}
-  mapped.empty? ? name : mapped.first
+  true
 end
 
 def generic_error(response)
@@ -82,18 +79,20 @@ def generic_error(response)
   true
 end
 
-def resolve_farm(name)
-  return name if name.match(/^\d+$/) || farm_aliases.keys.include?(name)
-  match_alias(farm_aliases, name)
+def resolve_farm(farm_alias)
+  read_aliases
+  return farm_alias if farm_alias.match(/^\d+$/) || Scalr.is_aliased_name?('farm', farm_alias)
+  Scalr.match_alias('farm', farm_alias)
 end
 
 # returns an array of farm role IDs
 def resolve_farm_role(name, params, response = nil)
+  read_aliases
   role_names = []
-  if farm_role_aliases.keys.include?(name)
+  if Scalr.is_aliased_name?('role', name)
     role_names << name
   elsif name != 'all'
-    role_names << match_alias(farm_role_aliases, name)
+    role_names << Scalr.match_alias('role', name)
   end
 
   unless response
@@ -189,6 +188,19 @@ def show_servers(servers)
   servers.sort_by{|info| info.index}.map do |info|
     sprintf(pat, info.index, info.status, info.uptime, info.id, info.platform_properties.to_s)
   end
+end
+
+def single_server(roles, server_spec)
+  servers = Scalr::ResponseObject::FarmRole.find_servers(roles, server_spec)
+  return servers.first if servers.length == 1
+
+  if servers.empty?
+    $stderr.puts('No such server found!')
+  else
+    $stderr.puts('Multiple servers identified:')
+    $stderr.puts(show_servers(servers).join("\n"))
+  end
+  nil
 end
 
 # to save typing we map parameters to shorter names
@@ -565,12 +577,17 @@ Main {
 
   mode 'application:list' do
     def run
-      response = scalr_call(:dm_applications_list)
-      return if generic_error(response)
-      pat = build_pattern(response.content, [:name, :id, :source_id],
-                          '%-{name} [Application ID: %{id}] [Source ID: %s]')
-      response.content.each do |item|
-        puts sprintf(pat, item.name, item.id, item.source_id)
+      application_response = scalr_call(:dm_applications_list)
+      source_response = scalr_call(:dm_sources_list)
+      return if generic_error(application_response) || generic_error(source_response)
+
+      sources = Hash[ source_response.content.map{|si| [si.id, si.url]} ]
+
+      pat = build_pattern(application_response.content, [:name, :id, :source_id],
+                          '%-{name} [Application ID: %{id}] [Source: %s]')
+      application_response.content.each do |item|
+        source_url = sources[item.source_id]
+        puts sprintf(pat, item.name, item.id, source_url)
       end
     end
   end
@@ -742,16 +759,15 @@ Main {
       return if generic_error(response)
 
       farm_id = response.request_inputs['FarmID']
-      response.content.each do |role|
-        server = role.find_server(params['server'].value)
-        if server
-          key_path = File.expand_path("~/.ssh/FARM-#{farm_id}.#{server.platform_properties.availability_zone_brief}.private.pem")
-          if File.exists?(key_path)
-            puts "ssh -i #{key_path} root@#{server.external_ip}"
-          else
-            $stderr.puts("Expected key file (#{key_path}) does not exist.")
-          end
-        end
+      server = single_server(response.content, params['server'].value)
+      return unless server
+
+      key_path = File.expand_path("~/.ssh/FARM-#{farm_id}.#{server.platform_properties.availability_zone_brief}.private.pem")
+      if File.exists?(key_path)
+        puts "ssh -i #{key_path} root@#{server.external_ip}"
+      else
+        $stderr.puts("Expected key file (#{key_path}) does not exist.")
+        exit_status 1
       end
     end
   end

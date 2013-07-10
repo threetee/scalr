@@ -112,7 +112,7 @@ module Scalr
       :dm_sources_list => {
           :name => 'DmSourcesList', :version => V230,
           :inputs => {},
-          :outputs => { :path => 'sourceset@item' }
+          :outputs => { :path => 'sourceset@item', :object => Scalr::ResponseObject::SourceItem }
       },
       :dns_zone_create => {
           :name => 'DNSZoneCreate', :version => V200,

@@ -54,6 +54,17 @@ module Scalr
       @@aliases[type] && @@aliases[type][name] && @@aliases[type][name].include?(alias_to_check.downcase)
     end
 
+    def is_aliased_name?(type, name)
+      aliases(type).keys.include?(name.downcase)
+    end
+
+    def match_alias(type, to_match)
+      aliases(type).each do |name, aliases|
+        return name if aliases.include?(to_match)
+      end
+      nil
+    end
+
     def method_missing(method_id, *arguments)
       if matches_action? method_id
         request = Scalr::Request.new(method_id, @@endpoint, @@key_id, @@access_key, @@version, arguments)
