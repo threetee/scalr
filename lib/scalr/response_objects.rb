@@ -91,6 +91,26 @@ module Scalr
         obj
       end
 
+      # 'server_spec' could be an index (1), or role.index (rails.1)
+      # will return a ::Server object if matching or nil (if not found)
+      def find_server(server_spec)
+        index = -1
+        if match_info = server_spec.match(/^(\w+)\.(\d+)$/)
+          role_name = match_info[1]
+          index = match_info[2].to_i if Scalr.is_alias?('role', name, role_name)
+        elsif server_spec.match(/^\d+$/)
+          index = server_spec.to_i
+        end
+
+        return nil if index == -1
+
+        matching = servers.find_all {|server| index == server.index}
+        if matching.length > 1
+          matching = matching.find {|server| server.running?}
+        end
+        matching.empty? ? nil : matching.first
+      end
+
       #{
       # :id=>"53494", :roleid=>"53532", :name=>"RailsAppServer", :platform=>"ec2", :category=>"Base",
       # :scalingproperties=>{:mininstances=>"1", :maxinstances=>"2"},
@@ -155,6 +175,15 @@ module Scalr
     end
 
     class Platform < StructWithOptions.new(:instance_type, :availability_zone)
+
+      def availability_zone_brief
+        geography, area, zone = availability_zone.split(/\-/, 3)
+        [geography, area, zone.gsub(/\D/, '')].join('-')
+      end
+
+      def to_s
+        "Instance: #{instance_type || 'n/a'}; Availability: #{availability_zone || 'n/a'}"
+      end
     end
 
     class Scaling < StructWithOptions.new(:min_instances, :max_instances)
@@ -234,6 +263,14 @@ module Scalr
         obj = super(data)
         obj.index = obj.index.to_i if obj.index
         obj
+      end
+
+      def running?
+        status == 'Running'
+      end
+
+      def terminated?
+        status == 'Terminated'
       end
     end
 

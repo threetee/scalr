@@ -4,9 +4,9 @@ module Scalr
   class Response
     require_relative './response_objects'
 
-    attr_accessor :code, :content, :error, :message, :transaction_id, :value
+    attr_accessor :code, :content, :error, :message, :request_inputs, :transaction_id, :value
       
-    def initialize(response, data, request_metadata)
+    def initialize(response, data, request_metadata, request_inputs = {})
       @code = response.code
       @message = response.message
       if successful_request?
@@ -17,6 +17,7 @@ module Scalr
           @error = @value[:error][:message]
         end
       end
+      @request_inputs = request_inputs
     end
     
     def successful_request?

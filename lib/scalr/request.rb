@@ -320,13 +320,13 @@ module Scalr
     def process!
       set_signature!
       http = Net::HTTP.new(@endpoint, 443)
-      #http.set_debug_output(Scalr.debug)  if Scalr.debug
+      http.set_debug_output(Scalr.debug)  if Scalr.debug
       http.use_ssl = true
       response = http.get("/?" + query_string + "&Signature=#{@signature}", {})
       if Scalr.debug
         Scalr.debug.puts(response.body)
       end
-      Scalr::Response.new(response, response.body, @action_info)
+      Scalr::Response.new(response, response.body, @action_info, @inputs)
     end
     
     private
