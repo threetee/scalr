@@ -782,6 +782,11 @@ Main {
       argument :required
     end
 
+    option 'url' do
+      cast :bool
+      default false
+    end
+
     def run
       response = dispatch(:global_variables_list, params)
       return if generic_error(response)
@@ -789,7 +794,8 @@ Main {
       key = db_key(params['db'].value)
       pair = response.content.find{|variable| variable.matches?(key)}
 
-      puts "psql #{pair.value.gsub(/int/, 'ext')}"
+      external_url = pair.value.gsub(/int/, 'ext')
+      puts (params['url'].value ? external_url : "psql #{external_url}")
     end
 
     def db_key(db)
