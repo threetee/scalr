@@ -772,4 +772,32 @@ Main {
       end
     end
   end
+
+  mode 'psql' do
+    argument 'db' do
+      description 'One of: master, 1, 2, 3, 4'
+    end
+
+    option 'farm' do
+      argument :required
+    end
+
+    def run
+      response = dispatch(:global_variables_list, params)
+      return if generic_error(response)
+
+      key = db_key(params['db'].value)
+      pair = response.content.find{|variable| variable.matches?(key)}
+
+      puts "psql #{pair.value.gsub(/int/, 'ext')}"
+    end
+
+    def db_key(db)
+      words = %w(ONE TWO THREE FOUR)
+      return 'TTM_DATABASE_URL' if db == 'master'
+      shard_count = db.to_i
+      replacement = (1..4).include?(shard_count) ? words[shard_count - 1] : db
+      "TTM_SHARD_#{replacement}_URL"
+    end
+  end
 }
