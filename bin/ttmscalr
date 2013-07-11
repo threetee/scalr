@@ -53,7 +53,7 @@ def read_aliases
     File.open(alias_path, 'w') do |out|
       out.puts <<-DEFAULTALIASES.gsub(/^ {6}/, '')
       {
-        "farm_aliases": {
+        "farm": {
           "15356": [ "Prod-DB-Primary", "master" ],
           "15357": [ "Prod-DB-Shard1", "shard1" ],
           "15358": [ "Prod-DB-Shard2", "shard2" ],
@@ -65,25 +65,28 @@ def read_aliases
           "15275": [ "Review", "ttm-review", "ttm-staging" ],
           "15331": [ "Winters" ]
         },
-        "farm_role_aliases": {
+        "role": {
           "RailsAppServer" : ["web", "rails"],
           "Sidekiq"        : ["sidekiq"],
           "Bunchball"      : ["bunchball", "bb"],
           "SystemWatcher"  : ["watcher"],
           "Reports"        : ["reports"],
           "DevDebug"       : ["debug"]
+        },
+        "application": {
+          "968":  ["production", "master"],
+          "1204": ["review", "staging"]
         }
       }
       DEFAULTALIASES
     end
     $stderr.puts "DONE - file written. Let's go!"
   end
-  all_aliases = JSON.parse(IO.read(alias_path))
-  farm_aliases      = all_aliases['farm_aliases'] || {}
-  farm_role_aliases = all_aliases['farm_role_aliases'] || {}
 
-  farm_aliases.each {|k,v| Scalr.add_alias('farm', k, v)}
-  farm_role_aliases.each {|k,v| Scalr.add_alias('role', k, v)}
+  JSON.parse(IO.read(alias_path)).each do |alias_name, alias_map|
+    alias_map.each{|k,v| Scalr.add_alias(alias_name, k, v)}
+  end
+
   true
 end
 
@@ -92,6 +95,12 @@ def generic_error(response)
   return false if response.success?
   $stderr.puts("ERROR - #{response.error}]")
   true
+end
+
+def resolve_application(app_alias)
+  read_aliases
+  return app_alias if app_alias.match(/^\d+$/) || Scalr.is_aliased_name?('application', app_alias)
+  Scalr.match_alias('application', app_alias)
 end
 
 def resolve_farm(farm_alias)
@@ -159,22 +168,6 @@ def resolve_server_index(index, params, role_id = nil)
   matching.empty? ? nil : matching.first.id
 end
 
-def build_pattern(items, keys, template)
-  lengths = scan_lengths(items, keys)
-  lengths.each do |key, length|
-    template = template.gsub(/\{#{key}\}/, "#{length}s")
-  end
-  template
-end
-
-def item_length(item)
-  item.instance_of?(Fixnum) || item.instance_of?(Float) ? item.to_s.length : item.length
-end
-
-def scan_lengths(items, keys)
-  Hash[ keys.map {|key| [key, items.map {|item| item[key].nil? ? 0 : item_length(item[key]) }.max ]} ]
-end
-
 def single_server(roles, server_spec)
   servers = Scalr::ResponseObject::FarmRole.find_servers(roles, server_spec)
   return servers.first if servers.length == 1
@@ -183,9 +176,31 @@ def single_server(roles, server_spec)
     $stderr.puts('No such server found!')
   else
     $stderr.puts('Multiple servers identified:')
-    $stderr.puts(Scalr::ResponseObject::Server.show(servers).join("\n"))
+    $stderr.puts(Scalr::ResponseObject::Server.show_items(servers).join("\n"))
   end
   nil
+end
+
+
+def logging_options(main)
+  main.option 'farm, -a' do
+    argument :required
+    description 'Farm with logs'
+  end
+  main.option 'server' do
+    argument :optional
+    description 'Server to restrict logs from'
+  end
+  main.option 'start' do
+    argument :optional
+    cast :int
+    description 'Log count to start with'
+  end
+  main.option 'limit' do
+    argument :optional
+    cast :int
+    description 'Log entries to fetch'
+  end
 end
 
 # to save typing we map parameters to shorter names
@@ -268,6 +283,8 @@ def transform_value(name, value, params)
     else
       value
     end
+  elsif name == :application_id && ! value.nil?
+    resolve_application(value)
   else
     value
   end
@@ -295,7 +312,6 @@ end
 #   get invoked. So least-specific modes should be before most-specific.
 
 Main {
-
   description <<-DESC
   Command-line interface for Scalr, with TTM-specific additions. See README.md for more.
   DESC
@@ -304,9 +320,8 @@ Main {
   ########## Deployment
 
   mode 'deploy' do
-    option 'application' do
-      argument :required
-      description 'ID of application to deploy. (Use "application:list" to list.)'
+    argument 'application' do
+      description 'Application ID/alias to deploy. (Use "application:list" to list.)'
     end
     option 'farm, -a' do
       argument :optional
@@ -316,7 +331,7 @@ Main {
       argument :optional
       description 'Path to which the application will be deployed (rarely needed)'
     end
-    option 'role' do
+    option 'role, -r' do
       argument :required
       description 'Role to which the application will be deployed'
     end
@@ -324,8 +339,8 @@ Main {
     def run
       response = dispatch(:dm_application_deploy, params)
       return if generic_error(response)
-
-      puts response.inspect
+      puts Scalr::ResponseObject::DeploymentTaskItem.
+               show_items(response.content).join("\n")
     end
   end
 
@@ -334,17 +349,17 @@ Main {
       argument :optional
       description 'ID of application'
     end
-    option 'farm' do
+    option 'farm, -a' do
       argument :optional
-      description 'ID of farm role'
+      description 'Farm to display tasks for'
     end
-    option 'role' do
+    option 'role, -r' do
       argument :optional
-      description 'ID of farm role'
+      description 'Restrict results to tasks on a particular role in the farm'
     end
     option 'server' do
       argument :optional
-      description 'ID server'
+      description 'Restrict results to tasks on a particular server'
     end
 
     def run
@@ -354,12 +369,8 @@ Main {
       if response.content.nil? || response.content.empty?
         puts 'No task records.'
       else
-        # return: serverid, deploymenttaskid, farmroleid, remotepath, status (no time?!)
-        pat = build_pattern(response.content, [:task_id, :server_id, :status],
-                            '%-{task_id} - %-{status} [Server: %s]')
-        response.content.each do |task_item|
-          puts sprintf(pat, task_item.task_id, task_item.status, task_item.server_id)
-        end
+        puts Scalr::ResponseObject::DeploymentTaskItem.
+                 show_items(response.content).join("\n")
       end
     end
   end
@@ -391,28 +402,26 @@ Main {
   end
 
   mode 'log:script' do
-    option 'farm' do
-      argument :required
-    end
+    logging_options(self)
+
     option 'role' do
-      argument :optional
-    end
-    option 'server' do
-      argument :optional
-    end
-    option 'start' do
-      argument :optional
-    end
-    option 'limit' do
       argument :optional
     end
     option 'expand' do
       argument :optional
+      description 'Display full messages generated by this script only'
+    end
+    option 'quiet' do
+      argument :optional
+      cast :bool
+      default false
+      description 'false (default) display failures and "expand"-triggered messages, true means only display status for all'
     end
     option 'verbose' do
       argument :optional
       cast :bool
       default false
+      description 'false (default) means only display failures, true means display all'
     end
 
     def run
@@ -422,49 +431,24 @@ Main {
       expand_script = params['expand'].given? ? params['expand'].value : nil
 
       display_all = params['verbose'].value
-
       puts "Script logs -- displaying #{display_all ? 'all records' : 'only failures'}", "\n"
-
       to_display = display_all ? response.content : response.content.find_all {|log_item| log_item.failure?}
-      pat = build_pattern(to_display, [:script_name, :exit_code, :exec_time, :event],
-                          '%s - %-{script_name} - [Exit: %{exit_code}] [Exec time: %{exec_time}] [From event: %-{event}] [Server: %s]')
-      to_display.each do |log_item|
-        next unless log_item.failure? || display_all
-        message = log_item.message.nil? ? '' : log_item.message.strip
-        from_event = log_item.event || 'N/A'
-        puts sprintf(pat, log_item.timestamp_formatted, log_item.script_name, log_item.exit_code,
-                          log_item.exec_time, from_event, log_item.server_id)
-        if log_item.failure? || log_item.script_matches(expand_script)
-          puts message, "\n\n"
-        end
-      end
+
+      puts Scalr::ResponseObject::ScriptLogItem.
+               show_items(to_display, expand_script, params['quiet'].value).join("\n")
     end
   end
 
-  mode 'log:list' do
-    option 'farm' do
-      argument :required
-    end
-    option 'server' do
-      argument :optional
-    end
-    option 'start' do
-      argument :optional
-    end
-    option 'limit' do
-      argument :optional
-    end
+  mode 'log:system' do
+    logging_options(self)
+
     option 'source' do
       argument :optional
       default 'all'
-    end
-    option 'verbose' do
-      argument :optional
-      cast :bool
-      default false
+      description 'Only display logs matching this source (default: all logs)'
     end
 
-    # TODO: add option for quieting/verbosing log messages; filtering on source name
+    # TODO: add option for quieting/verbosing log messages?
 
     def run
       response = dispatch(:logs_list, params)
@@ -472,17 +456,9 @@ Main {
 
       if response.value[:totalrecords].to_i == 0
         puts 'No log records'
-        return
-      end
-
-      # each record has: message, severity, timestamp, source, serverid
-      pat = build_pattern(response.content, [:source], '%s - %-{source} - [Severity: %s]')
-      response.content.each do |log_item|
-        next unless log_item.matches_source(params['source'].value)
-        message = log_item.message.nil? ? '' : log_item.message.strip
-        source = log_item.source || 'N/A'
-        puts sprintf(pat, log_item.timestamp_formatted, source, log_item.severity_formatted)
-        puts message if params['verbose'].value
+      else
+        puts Scalr::ResponseObject::LogItem.
+                 show_items(response.content, params['source'].value).join("\n")
       end
     end
   end
@@ -509,7 +485,6 @@ Main {
         raise "Must provide either 'farm' or 'role' to launch"
       end
 
-
       response = scalr_call(action, options)
       return if generic_error(response)
 
@@ -523,16 +498,16 @@ Main {
   end
 
   mode 'terminate' do
-    description 'Terminate a Farm or Server'
+    description 'Terminate a farm or server'
 
     option 'farm' do
       argument :optional
-      description 'Farm to launch'
+      description 'Farm to terminate'
     end
 
     option 'server' do
       argument :optional
-      description 'Server ID to launch'
+      description 'Server ID to terminate (GUID required)'
     end
 
     def run
@@ -542,15 +517,13 @@ Main {
       action = :server_terminate if options[:server_id]
       if action.nil?
         raise "Must provide either 'farm' or 'server' to terminate"
+      elsif action == :farm_terminate
+        $stderr.puts "Sorry, Andre won't let us run this yet!"
+      else
+        response = scalr_call(action, options)
+        return if generic_error(response)
+        puts "Result: #{response.content}"
       end
-      if action == :farm_terminate
-        raise "Sorry, Andre won't let us run this yet!"
-      end
-
-      response = scalr_call(action, options)
-      return if generic_error(response)
-
-      puts "Result: #{response.content}"
     end
   end
 
@@ -560,14 +533,10 @@ Main {
       source_response = scalr_call(:dm_sources_list)
       return if generic_error(application_response) || generic_error(source_response)
 
+      read_aliases
       sources = Hash[ source_response.content.map{|si| [si.id, si.url]} ]
-
-      pat = build_pattern(application_response.content, [:name, :id, :source_id],
-                          '%-{name} [Application ID: %{id}] [Source: %s]')
-      application_response.content.each do |item|
-        source_url = sources[item.source_id]
-        puts sprintf(pat, item.name, item.id, source_url)
-      end
+      puts Scalr::ResponseObject::Application.
+               show_items(application_response.content, sources).join("\n")
     end
   end
 
@@ -593,6 +562,36 @@ Main {
     end
   end
 
+  mode 'farm:server' do
+    description 'Find out on which role a server lives within a farm'
+
+    option 'farm, -a' do
+      description 'Farm containing server'
+      argument :required
+    end
+
+    option 'server' do
+      description 'Server to find (must be GUID)'
+      argument :required
+    end
+
+    def run
+      response = dispatch(:farm_get_details, params)
+      return if generic_error(response)
+
+      server_role = response.content.find do |role|
+        role.servers.any? {|server| params['server'].value == server.id}
+      end
+      if server_role.nil?
+        puts 'Cannot find server in farm.'
+      else
+        aliases = Scalr.aliases('role', server_role.name)
+        puts "Role: #{server_role.name} (ID: #{server_role.id}) (aliases: #{aliases.empty? ? 'N/A' : aliases.join(', ')})"
+      end
+    end
+
+  end
+
   mode 'farm:list' do
     description 'List summary of all farms'
 
@@ -601,7 +600,7 @@ Main {
       return if generic_error(response)
 
       read_aliases
-      puts Scalr::ResponseObject::FarmSummary.show(response.content).join("\n")
+      puts Scalr::ResponseObject::FarmSummary.show_items(response.content).join("\n")
     end
   end
 
@@ -632,7 +631,7 @@ Main {
         found = response.content.detect {|pair| pair.key_equals?(matching_key)}
         puts found.value if found
       else
-        puts Scalr::ResponseObject::Variable.show(response.content).join("\n")
+        puts Scalr::ResponseObject::Variable.show_items(response.content).join("\n")
       end
     end
 
@@ -684,7 +683,7 @@ Main {
       return if generic_error(response)
 
       puts Scalr::ResponseObject::Script.
-               show(response.content).reverse.join("\n")
+               show_items(response.content).reverse.join("\n")
     end
   end
 
@@ -703,7 +702,7 @@ Main {
 
       display_all = params['display_all'].value
       puts Scalr::ResponseObject::ScriptSummary.
-               show(response.content, display_all).join("\n")
+               show_items(response.content, display_all).join("\n")
     end
   end
 

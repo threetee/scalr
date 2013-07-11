@@ -76,14 +76,28 @@ module Scalr
     end
 
     class Application < StructWithOptions.new(:id, :name, :source_id)
+      def self.show_items(applications, sources)
+        pat = build_pattern(applications, [:name, :id, :source_id],
+                            '%-{name} [Application ID: %{id}] [Source: %s] (aliases: %s)')
+        applications.map do |item|
+          source_url = sources[item.source_id]
+          aliases = Scalr.aliases('application', item.id)
+          sprintf(pat, item.name, item.id, source_url, (aliases.empty? ? 'N/A' : aliases.join(', ')))
+        end
+      end
     end
 
     class ConfigVariable < StructWithOptions.new(:name)
     end
 
-    class DeploymentTaskItem < StructWithOptions.new(:server_id, :task_id, :farm_role_id, :remote_path, :status)
+    class DeploymentTaskItem < StructWithOptions.new(:farm_role_id, :id, :remote_path, :server_id, :status)
       def self.fields
-        super.merge(deploymenttaskid: :task_id)
+        super.merge(deploymenttaskid: :id)
+      end
+
+      def self.show_items(tasks)
+        pat = build_pattern(tasks, [:id, :server_id, :status], '%-{id} - %-{status} [Server: %s]')
+        tasks.map {|task| sprintf(pat, task.id, task.status, task.server_id)}
       end
 
       # {:serverid=>"57f02c81-6020-408a-8125-eecffa838673", :deploymenttaskid=>"f81461e34ce3",
@@ -154,7 +168,7 @@ module Scalr
       end
 
       def for_display
-        servers_display = servers.empty? ? ['None'] : Scalr::ResponseObject::Server.show(servers)
+        servers_display = servers.empty? ? ['None'] : Scalr::ResponseObject::Server.show_items(servers)
         aliases = Scalr.aliases('role', name)
         <<-ROLEINFO.gsub(/^ {10}/, '')
           ROLE: #{name} (our aliases: #{aliases.empty? ? 'N/A' : aliases.join(', ')})
@@ -204,7 +218,7 @@ module Scalr
         obj
       end
 
-      def self.show(farms)
+      def self.show_items(farms)
         pat = build_pattern(farms, [:id, :name, :status],
                             '%{id} - %-{name} - %-{status} - aliases: %s')
         farms.map do |farm|
@@ -228,6 +242,16 @@ module Scalr
         obj.severity  = obj.severity.to_i
         obj.timestamp = obj.parse_timestamp(obj.timestamp)
         obj
+      end
+
+      def self.show_items(items, source = 'all')
+        pat = build_pattern(items, [:source], '%s - %-{source} - [Severity: %s]')
+        items.map do |item|
+          next unless item.matches_source(source)
+          message = item.message.nil? ? '' : "\n" + item.message.strip
+          source = item.source || 'N/A'
+          sprintf(pat, item.timestamp_formatted, source, item.severity_formatted) + message
+        end
       end
 
       def matches_source(match_source)
@@ -273,7 +297,7 @@ module Scalr
         obj
       end
 
-      def self.show(script_revisions)
+      def self.show_items(script_revisions)
         pat = build_pattern(script_revisions, [:revision], '%s, v%-{revision} - Config: %s')
         script_revisions.map do |rev|
           sprintf(pat, rev.date_formatted, rev.revision, rev.config_variables_formatted('none'))
@@ -292,7 +316,7 @@ module Scalr
     end
 
     class ScriptSummary < StructWithOptions.new(:description, :id, :latest_revision, :name)
-      def self.show(summaries, display_all = false)
+      def self.show_items(summaries, display_all = false)
         pat = build_pattern(summaries, [:id, :description, :name], '%-{id} %-{name} - %s')
         summaries.map do |summary|
           next unless display_all || summary.ttm?
@@ -322,6 +346,20 @@ module Scalr
           obj.timestamp = obj.parse_timestamp(obj.timestamp)
         end
         obj
+      end
+
+      def self.show_items(log_items, expand_script = nil, quiet = false)
+        pat = build_pattern(log_items, [:script_name, :exit_code, :exec_time, :event],
+                            '%s - %-{script_name} - [Exit: %{exit_code}] [Exec time: %{exec_time}] [From event: %-{event}] [Server: %s]')
+        log_items.map do |log_item|
+          next unless log_item.failure?
+          from_event = log_item.event || 'N/A'
+          message = log_item.message.nil? ? '' : log_item.message.strip
+          display_message = ! quiet && (log_item.failure? || log_item.script_matches(expand_script))
+          sprintf(pat, log_item.timestamp_formatted, log_item.script_name, log_item.exit_code,
+                       log_item.exec_time, from_event, log_item.server_id) +
+              (display_message ? "\n" + message + "\n" : '')
+        end
       end
 
       def failure?
@@ -359,7 +397,7 @@ module Scalr
         obj
       end
 
-      def self.show(servers)
+      def self.show_items(servers)
         pat = build_pattern(servers, [:index, :status, :uptime, :id],
                             '#%-{index}. %{status} - Uptime %{uptime} - %{id} - %s')
         servers.
@@ -399,7 +437,7 @@ module Scalr
         new(key.upcase, value)
       end
 
-      def self.show(pairs)
+      def self.show_items(pairs)
         pat = build_pattern(pairs, [:name], '%-{name}: %s')
         pairs.map{|pair| sprintf(pat, pair.name, pair.value)}
       end
