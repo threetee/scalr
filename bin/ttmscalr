@@ -522,7 +522,6 @@ Main {
 
   end
 
-
   mode 'terminate' do
     description 'Terminate a Farm or Server'
 
@@ -585,8 +584,10 @@ Main {
       return if generic_error(response)
 
       farm_id = response.request_inputs['FarmID']
+      read_aliases
       aliases = Scalr.aliases('farm', farm_id.to_s)
-      puts "FARM: #{farm_id} (our aliases: #{aliases.empty? ? 'N/A' : aliases.join(', ')})"
+
+      puts "FARM: #{farm_id} (aliases: #{aliases.empty? ? 'N/A' : aliases.join(', ')})"
       puts '========================================'
       puts response.content.map {|farm_role| farm_role.for_display}.join("\n")
     end
@@ -599,12 +600,8 @@ Main {
       response = scalr_call(:farms_list)
       return if generic_error(response)
 
-      pat = build_pattern(response.content, [:id, :name, :status], '%{id} - %-{name} - %s - aliases: %s')
       read_aliases
-      response.content.each do |farm_info|
-        aliases = Scalr.aliases('farm', farm_info.id.to_s)
-        puts sprintf(pat, farm_info.id, farm_info.name, farm_info.status_formatted, aliases.empty? ? 'N/A' : aliases.join(', '))
-      end
+      puts Scalr::ResponseObject::FarmSummary.show(response.content).join("\n")
     end
   end
 
@@ -631,16 +628,11 @@ Main {
 
       if response.content.nil? || response.content.empty?
         puts 'NO CONFIG FOUND'
-      elsif params['key'].value
-        found = response.content.detect {|pair| pair.key_equals?(params['key'].value)}
-        if found
-          puts found.value
-        end
+      elsif matching_key = params['key'].value
+        found = response.content.detect {|pair| pair.key_equals?(matching_key)}
+        puts found.value if found
       else
-        pat = build_pattern(response.content, [:name], '%-{name}: %s')
-        response.content.each do |pair|
-          puts sprintf(pat, pair.name, pair.value)
-        end
+        puts Scalr::ResponseObject::Variable.show(response.content).join("\n")
       end
     end
 
@@ -664,34 +656,18 @@ Main {
 
     def run
       options = collect_options([:farm_id], params)
-      pairs = read_pairs(params['pair'])
+      pairs = Scalr::ResponseObject::Variable.read(params['pair'].values)
       if pairs.empty?
         raise 'Must provide at least one key=value pair'
       end
       pairs.each do |pair|
-        response = scalr_call(:global_variable_set, options.merge(param_name: pair[0], param_value: pair[1]))
-        pair_display = pair.join('=')
+        response = scalr_call(:global_variable_set, options.merge(param_name: pair.name, param_value: pair.value))
         if response.success?
-          puts "OK #{pair_display}"
+          puts "OK #{pair.to_s}"
         else
-          puts "FAIL #{pair_display} => #{response.error}"
+          puts "FAIL #{pair.to_s} => #{response.error}"
         end
       end
-    end
-
-    def read_pairs(param)
-      if param.values.length == 1 && File.exists?(param.value)
-        File.readlines(param.value).map {|line| to_pair(line)}.compact
-      else
-        param.values.map {|entry| to_pair(entry)}.compact
-      end
-    end
-
-    def to_pair(line)
-      line = line.chomp
-      return nil if line =~ /^\s*#/ || line =~ /^\s*$/
-      key, value = line.split( /\s*[\=\:]\s*/, 2)
-      [key, value]
     end
   end
 
@@ -707,10 +683,8 @@ Main {
       response = dispatch(:script_get_details, params)
       return if generic_error(response)
 
-      pat = build_pattern(response.content, [:revision], '%s, v%-{revision} - Config: %s')
-      response.content.reverse.each do |script_rev|
-        puts sprintf(pat, script_rev.date_formatted, script_rev.revision, script_rev.config_variables_formatted('none'))
-      end
+      puts Scalr::ResponseObject::Script.
+               show(response.content).reverse.join("\n")
     end
   end
 
@@ -727,11 +701,9 @@ Main {
       response = dispatch(:scripts_list, params)
       return if generic_error(response)
 
-      pat = build_pattern(response.content, [:id, :description, :name], '%-{id} %-{name} - %s')
-      response.content.each do |script_item|
-        next unless params['display_all'].value || script_item.ttm?
-        puts sprintf(pat, script_item.id, script_item.name, script_item.description)
-      end
+      display_all = params['display_all'].value
+      puts Scalr::ResponseObject::ScriptSummary.
+               show(response.content, display_all).join("\n")
     end
   end
 

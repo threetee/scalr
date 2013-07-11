@@ -204,6 +204,15 @@ module Scalr
         obj
       end
 
+      def self.show(farms)
+        pat = build_pattern(farms, [:id, :name, :status],
+                            '%{id} - %-{name} - %-{status} - aliases: %s')
+        farms.map do |farm|
+          aliases = Scalr.aliases('farm', farm.id.to_s)
+          sprintf(pat, farm.id, farm.name, farm.status_formatted, aliases.empty? ? 'N/A' : aliases.join(', '))
+        end
+      end
+
       def status_formatted
         return 'RUNNING'       if status == 1
         return 'TERMINATED'    if status == 0
@@ -264,6 +273,13 @@ module Scalr
         obj
       end
 
+      def self.show(script_revisions)
+        pat = build_pattern(script_revisions, [:revision], '%s, v%-{revision} - Config: %s')
+        script_revisions.map do |rev|
+          sprintf(pat, rev.date_formatted, rev.revision, rev.config_variables_formatted('none'))
+        end
+      end
+
       def config_variables_formatted(default = nil)
         config_variables.empty? ? default : config_variables.map {|cv| cv.name}.join('; ')
       end
@@ -276,6 +292,13 @@ module Scalr
     end
 
     class ScriptSummary < StructWithOptions.new(:description, :id, :latest_revision, :name)
+      def self.show(summaries, display_all = false)
+        pat = build_pattern(summaries, [:id, :description, :name], '%-{id} %-{name} - %s')
+        summaries.map do |summary|
+          next unless display_all || summary.ttm?
+          sprintf(pat, summary.id, summary.name, summary.description)
+        end
+      end
 
       def ttm?
         name.match(/^TTM/)
@@ -357,6 +380,30 @@ module Scalr
     end
 
     class Variable < StructWithOptions.new(:name, :value)
+
+      # turn an array of key/value pairs into ::Variable objects, or if the first (and only)
+      # argument is a valid file slurp it in and turn each nonblank, noncomment line into
+      # a ::Variable object
+      def self.read(specs)
+        if specs.length == 1 && File.exists?(specs[0])
+          File.readlines(specs[0]).map {|line| to_pair(line)}.compact
+        else
+          specs.map {|entry| to_pair(entry)}.compact
+        end
+      end
+
+      def self.to_pair(line)
+        line = line.chomp
+        return nil if line =~ /^\s*#/ || line =~ /^\s*$/
+        key, value = line.strip.split( /\s*[\=\:]\s*/, 2)
+        new(key.upcase, value)
+      end
+
+      def self.show(pairs)
+        pat = build_pattern(pairs, [:name], '%-{name}: %s')
+        pairs.map{|pair| sprintf(pat, pair.name, pair.value)}
+      end
+
       # does case-insensitive comparison to key
       def key_equals?(other_name)
         name.downcase == other_name.downcase
