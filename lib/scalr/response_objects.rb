@@ -12,6 +12,8 @@ module Scalr
       end
 
       def self.build(data)
+        return nil unless data
+
         #puts "Building #{self.name} from #{data.inspect}"
 
         params = {}
@@ -72,6 +74,24 @@ module Scalr
       #  :farmroleid=>"53494", :remotepath=>"/var/www", :status=>"pending"}
     end
 
+    class DeploymentTaskLogItem < StructWithOptions.new(:id, :message, :timestamp, :type)
+      def self.build(data)
+        obj = super(data)
+        if obj
+          obj.timestamp = obj.parse_timestamp(obj.timestamp)
+        end
+        obj
+      end
+
+      def message_trimmed
+        message.gsub(/[\r\n]/, ' ').rstrip
+      end
+
+      def timestamp_formatted
+        format_timestamp(timestamp)
+      end
+    end
+
     class FarmRole < StructWithOptions.new(:id, :name, :role_id, :platform, :category, :cloud_location,
                                            :is_scaling, :scaling_properties, :platform_properties, :servers)
       def self.components
@@ -87,7 +107,9 @@ module Scalr
 
       def self.build(data)
         obj = super(data)
-        obj.servers = self.translate_array(data[:serverset], Scalr::ResponseObject::Server)
+        if obj
+          obj.servers = self.translate_array(data[:serverset], Scalr::ResponseObject::Server)
+        end
         obj
       end
 
@@ -139,7 +161,9 @@ module Scalr
 
       def self.build(data)
         obj = super(data)
-        obj.status = obj.status.to_i
+        if obj
+          obj.status = obj.status.to_i
+        end
         obj
       end
 
@@ -196,8 +220,10 @@ module Scalr
     class Script < StructWithOptions.new(:config_variables, :date, :revision)
       def self.build(data)
         obj = super(data)
-        obj.config_variables = self.translate_array(data[:configvariables], Scalr::ResponseObject::ConfigVariable)
-        obj.date = obj.parse_datestamp(obj.date)
+        if obj
+          obj.config_variables = self.translate_array(data[:configvariables], Scalr::ResponseObject::ConfigVariable)
+          obj.date = obj.parse_datestamp(obj.date)
+        end
         obj
       end
 
@@ -230,9 +256,11 @@ module Scalr
 
       def self.build(data)
         obj = super(data)
-        obj.exec_time = obj.exit_code.to_f if obj.exec_time
-        obj.exit_code = obj.exit_code.to_i if obj.exit_code
-        obj.timestamp = obj.parse_timestamp(obj.timestamp)
+        if obj
+          obj.exec_time = obj.exit_code.to_f if obj.exec_time
+          obj.exit_code = obj.exit_code.to_i if obj.exit_code
+          obj.timestamp = obj.parse_timestamp(obj.timestamp)
+        end
         obj
       end
 
@@ -265,7 +293,9 @@ module Scalr
 
       def self.build(data)
         obj = super(data)
-        obj.index = obj.index.to_i if obj.index
+        if obj
+          obj.index = obj.index.to_i if obj.index
+        end
         obj
       end
 

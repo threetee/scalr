@@ -92,7 +92,7 @@ module Scalr
       :dm_deployment_task_get_log => {
           :name => 'DmDeploymentTaskGetLog', :version => V230,
           :inputs => { :deployment_task_id => true },
-          :outputs => { :path => 'logset@item', :object => Scalr::ResponseObject::LogItem }
+          :outputs => { :path => 'logset@item', :object => Scalr::ResponseObject::DeploymentTaskLogItem}
       },
       :dm_deployment_task_get_status => {
         :name => 'DmDeploymentTaskGetStatus', :version => V230,

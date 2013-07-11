@@ -19,7 +19,7 @@ require 'scalr'
 require 'scalr/ttm'
 
 Scalr.read_access_info
-#Scalr.debug = $stdout
+#Scalr.debug = $stderr
 
 ALIAS_FILE = '~/.ttm_scalr_aliases.json'
 
@@ -90,8 +90,7 @@ end
 def generic_error(response)
   return true unless response
   return false if response.success?
-  $stderr.puts("Error! [Code: #{response.code}] [Message: #{response.error}]")
-  error_code 1
+  $stderr.puts("ERROR - #{response.error}]")
   true
 end
 
@@ -113,12 +112,16 @@ def resolve_farm_role(name, params, response = nil)
 
   unless response
     response = dispatch(:farm_get_details, params)
-    return [] unless response.success?
+    unless response.success?
+      $stderr.puts('Failed to get farm details!')
+      generic_error(response)
+      return []
+    end
   end
 
   response.content.
-      find_all {|role_info| name == 'all' || role_names.include?(role_info[:name])}.
-      map {|role_info| role_info[:id]}
+      find_all {|role_info| name == 'all' || role_names.include?(role_info.name.downcase)}.
+      map {|role_info| role_info.id}
 end
 
 # given a count of a server within a role, resolve it to a fully-qualified
@@ -335,19 +338,19 @@ Main {
   mode 'deploy' do
     option 'application' do
       argument :required
-      description 'ID of application to deploy'
+      description 'ID of application to deploy. (Use "application:list" to list.)'
     end
-    option 'farm' do
+    option 'farm, -a' do
       argument :optional
       description 'Farm to use when resolving role (if aliased)'
     end
     option 'path' do
       argument :optional
-      description 'Path to which the application will be deployed'
+      description 'Path to which the application will be deployed (rarely needed)'
     end
     option 'role' do
       argument :required
-      description 'ID/alias of farm role to which we will deploy the application'
+      description 'Role to which the application will be deployed'
     end
 
     def run
@@ -355,41 +358,6 @@ Main {
       return if generic_error(response)
 
       puts response.inspect
-    end
-  end
-
-  mode 'deploy:log' do
-    option 'task' do
-      argument :required
-      description 'ID of deployment task'
-    end
-    def run
-      response = dispatch(:dm_deployment_task_get_log, params)
-      return if generic_error(response)
-
-      if response.value[:totalrecords].to_i == 0
-        puts 'No log records'
-        return
-      end
-
-      response.content.each do |log_item|
-        next if log_item.nil?
-        time = Time.at(log_item[:timestamp].to_i).strftime('%H:%M:%S')
-        message = log_item[:message].gsub( /[\r\n]/, ' ').rstrip
-        puts "#{time} - #{message}"
-      end
-    end
-  end
-
-  mode 'deploy:status' do
-    option 'task' do
-      argument :required
-      description 'ID of deployment task'
-    end
-    def run
-      response = dispatch(:dm_deployment_task_get_status, params)
-      return if generic_error(response)
-      puts "Status: #{response.content}"
     end
   end
 
@@ -415,13 +383,43 @@ Main {
       response = dispatch(:dm_deployment_tasks_list, params)
       return if generic_error(response)
 
-      # return: serverid, deploymenttaskid, farmroleid, remotepath, status (no time?!)
-      pat = build_pattern(response.content, [:task_id, :server_id, :status],
-                          '%-{task_id} - %-{status} [Server: %s]')
-      response.content.each do |task_item|
-        puts sprintf(pat, task_item.task_id, task_item.status, task_item.server_id)
+      if response.content.nil? || response.content.empty?
+        puts 'No task records.'
+      else
+        # return: serverid, deploymenttaskid, farmroleid, remotepath, status (no time?!)
+        pat = build_pattern(response.content, [:task_id, :server_id, :status],
+                            '%-{task_id} - %-{status} [Server: %s]')
+        response.content.each do |task_item|
+          puts sprintf(pat, task_item.task_id, task_item.status, task_item.server_id)
+        end
       end
     end
+  end
+
+  mode 'task' do
+    option 'task' do
+      argument :required
+      description 'ID of deployment task (use "deploy:tasks" + farm and role to lookup)'
+    end
+
+    def run
+      response = dispatch(:dm_deployment_task_get_status, params)
+      return if generic_error(response)
+
+      puts "Status: #{response.content}"
+
+      response = dispatch(:dm_deployment_task_get_log, params)
+      return if generic_error(response)
+
+      if response.value[:totalrecords].to_i == 0
+        puts 'No log records'
+      else
+        response.content.each do |log_item|
+          puts "#{log_item.timestamp_formatted} - #{log_item.message_trimmed}"
+        end
+      end
+    end
+
   end
 
   mode 'log:script' do

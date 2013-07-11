@@ -53,7 +53,7 @@ private
 
       # coerce our value into an array if it has only one value
       if output_path.include?('@') && ! current_value.instance_of?(Array)
-        current_value = [ current_value ]
+        current_value = current_value.nil? ? [] : [ current_value ]
       end
 
       if clazz = request_metadata[:outputs][:object]
