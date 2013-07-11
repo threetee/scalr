@@ -646,7 +646,7 @@ Main {
       if response.content.nil? || response.content.empty?
         puts 'NO CONFIG FOUND'
       elsif params['key'].value
-        found = response.content.detect {|pair| pair.matches?(params['key'].value)}
+        found = response.content.detect {|pair| pair.key_equals?(params['key'].value)}
         if found
           puts found.value
         end
@@ -759,10 +759,15 @@ Main {
       response = dispatch(:farm_get_details, params)
       return if generic_error(response)
 
-      farm_id = response.request_inputs['FarmID']
       server = single_server(response.content, params['server'].value)
-      return unless server
 
+      unless server
+        $stderr.puts("Failed to identify server with: #{params['server'].value}")
+        exit_status 1
+        return
+      end
+
+      farm_id = response.request_inputs['FarmID']
       key_path = File.expand_path("~/.ssh/FARM-#{farm_id}.#{server.platform_properties.availability_zone_brief}.private.pem")
       if File.exists?(key_path)
         puts "ssh -i #{key_path} root@#{server.external_ip}"
@@ -792,18 +797,41 @@ Main {
       return if generic_error(response)
 
       key = db_key(params['db'].value)
-      pair = response.content.find{|variable| variable.matches?(key)}
+      pair = response.content.find{|var| var.key_equals?(key)}
+      if pair
+        external_url = pair.value.gsub(/int/, 'ext')
+        puts(params['url'].value ? external_url : "psql #{external_url}")
+      else
+        similar_pairs = response.content.
+            find_all {|var| var.key_matches?(/^TTM.+URL$/)}.
+            map{|var| var.to_s}.
+            join("\n  ")
+        $stderr.puts <<-MISSING.gsub(/^ {11}/, '')
+           CONFIG NOT FOUND!
 
-      external_url = pair.value.gsub(/int/, 'ext')
-      puts(params['url'].value ? external_url : "psql #{external_url}")
+           No such DB config key exists [Tried: #{key}]. If you're looking for a shard
+           connection use one of 1..4 or 'one'..'four' as the shard identifier.
+
+           Similar config keys from your farm:
+             #{similar_pairs}
+        MISSING
+      end
+    end
+
+    def url_master
+      'TTM_DATABASE_URL'
+    end
+
+    def url_shard(shard)
+      "TTM_SHARD_#{shard}_URL"
     end
 
     def db_key(db)
       words = %w(ONE TWO THREE FOUR)
-      return 'TTM_DATABASE_URL' if db == 'master'
+      return url_master if db == 'master'
       shard_count = db.to_i
-      replacement = (1..4).include?(shard_count) ? words[shard_count - 1] : db
-      "TTM_SHARD_#{replacement}_URL"
+      replacement = (1..4).include?(shard_count) ? words[shard_count - 1] : db.upcase
+      url_shard(replacement)
     end
   end
 }

@@ -282,9 +282,14 @@ module Scalr
     end
 
     class Variable < StructWithOptions.new(:name, :value)
-
-      def matches?(other_name)
+      # does case-insensitive comparison to key
+      def key_equals?(other_name)
         name.downcase == other_name.downcase
+      end
+
+      # applies regex to key, case unmodified (key will always be in upper case though)
+      def key_matches?(pattern)
+        name.match(pattern)
       end
 
       def to_s
