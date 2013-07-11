@@ -775,7 +775,7 @@ Main {
 
   mode 'psql' do
     argument 'db' do
-      description 'One of: master, 1, 2, 3, 4'
+      description 'One of: master, 1, 2, 3, 4, one, two, three, four'
     end
 
     option 'farm' do
@@ -795,7 +795,7 @@ Main {
       pair = response.content.find{|variable| variable.matches?(key)}
 
       external_url = pair.value.gsub(/int/, 'ext')
-      puts (params['url'].value ? external_url : "psql #{external_url}")
+      puts(params['url'].value ? external_url : "psql #{external_url}")
     end
 
     def db_key(db)
