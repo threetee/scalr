@@ -40,6 +40,22 @@ module Scalr
         items.map {|item_data| translation_object.build(item_data)}
       end
 
+      def self.build_pattern(items, keys, template)
+        lengths = scan_lengths(items, keys)
+        lengths.each do |key, length|
+          template = template.gsub(/\{#{key}\}/, "#{length}s")
+        end
+        template
+      end
+
+      def self.item_length(item)
+        item.instance_of?(Fixnum) || item.instance_of?(Float) ? item.to_s.length : item.length
+      end
+
+      def self.scan_lengths(items, keys)
+        Hash[ keys.map {|key| [key, items.map {|item| item[key].nil? ? 0 : item_length(item[key]) }.max ]} ]
+      end
+
       def initialize(*args)
         opts = args.last.is_a?(Hash) ? args.pop : {}
         super(*args)
@@ -135,6 +151,27 @@ module Scalr
           matching = matching.find {|server| server.running?}
         end
         matching.empty? ? nil : matching.first
+      end
+
+      def for_display
+        servers_display = servers.empty? ? ['None'] : Scalr::ResponseObject::Server.show(servers)
+        aliases = Scalr.aliases('role', name)
+        <<-ROLEINFO.gsub(/^ {10}/, '')
+          ROLE: #{name} (our aliases: #{aliases.empty? ? 'N/A' : aliases.join(', ')})
+            Farm role ID:  #{id}
+            Scaling:       #{show_scaling}
+            Platform:      #{platform_properties.to_s}
+            Servers:       #{servers_display.empty? ? 'None' : "\n      " + servers_display.join("\n      ")}
+          ROLEINFO
+      end
+
+      def show_scaling
+        return '' unless scaling_properties && is_scaling
+        if is_scaling.to_i > 0
+          "YES [Range: #{scaling_properties.min_instances}-#{scaling_properties.max_instances}]"
+        else
+          "NO"
+        end
       end
 
       #{
@@ -297,6 +334,14 @@ module Scalr
           obj.index = obj.index.to_i if obj.index
         end
         obj
+      end
+
+      def self.show(servers)
+        pat = build_pattern(servers, [:index, :status, :uptime, :id],
+                            '#%-{index}. %{status} - Uptime %{uptime} - %{id} - %s')
+        servers.
+            sort_by {|info| info.index}.
+            map {|server| sprintf(pat, server.index, server.status, server.uptime, server.id, server.platform_properties.to_s)}
       end
 
       def running?

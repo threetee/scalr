@@ -54,11 +54,11 @@ def read_aliases
       out.puts <<-DEFAULTALIASES.gsub(/^ {6}/, '')
       {
         "farm_aliases": {
-          "14433": [ "Prod-DB-Primary", "db-master" ],
-          "14460": [ "Prod-DB-Shard1", "db-1" ],
-          "14462": [ "Prod-DB-Shard2", "db-2" ],
-          "14463": [ "Prod-DB-Shard3", "db-3" ],
-          "14464": [ "Prod-DB-Shard4", "db-4" ],
+          "15356": [ "Prod-DB-Primary", "master" ],
+          "15357": [ "Prod-DB-Shard1", "shard1" ],
+          "15358": [ "Prod-DB-Shard2", "shard2" ],
+          "15359": [ "Prod-DB-Shard3", "shard3" ],
+          "15360": [ "Prod-DB-Shard4", "shard4" ],
           "14498": [ "Production", "ttm-production" ],
           "15163": [ "DB-Test" ],
           "15274": [ "PG-TEST" ],
@@ -159,20 +159,6 @@ def resolve_server_index(index, params, role_id = nil)
   matching.empty? ? nil : matching.first.id
 end
 
-# example of data structure: http://wiki.scalr.com/display/docs/FarmGetDetails
-def show_role(farm_role)
-  servers = farm_role.servers.empty? ? ['None'] : show_servers(farm_role.servers)
-  aliases = Scalr.aliases('role', farm_role.name)
-  <<-ROLEINFO.gsub(/^  /, '')
-  ROLE: #{farm_role.name} (our aliases: #{aliases.empty? ? 'N/A' : aliases.join(', ')})
-    Farm role ID:  #{farm_role.id}
-    Scaling:       #{show_scaling(farm_role)}
-    Platform:      #{farm_role.platform_properties.to_s}
-    Servers:
-      #{servers.join("\n      ")}
-  ROLEINFO
-end
-
 def build_pattern(items, keys, template)
   lengths = scan_lengths(items, keys)
   lengths.each do |key, length|
@@ -189,24 +175,6 @@ def scan_lengths(items, keys)
   Hash[ keys.map {|key| [key, items.map {|item| item[key].nil? ? 0 : item_length(item[key]) }.max ]} ]
 end
 
-def show_scaling(info)
-  return '' unless info.scaling_properties && info.is_scaling
-  p = info.scaling_properties
-  if info.is_scaling.to_i > 0
-    "YES [Range: #{p.min_instances}-#{p.max_instances}]"
-  else
-    "NO"
-  end
-end
-
-def show_servers(servers)
-  pat = build_pattern(servers, [:index, :status, :uptime, :id],
-                      '#%-{index}. %{status} - Uptime %{uptime} - %{id} - %s')
-  servers.sort_by{|info| info.index}.map do |info|
-    sprintf(pat, info.index, info.status, info.uptime, info.id, info.platform_properties.to_s)
-  end
-end
-
 def single_server(roles, server_spec)
   servers = Scalr::ResponseObject::FarmRole.find_servers(roles, server_spec)
   return servers.first if servers.length == 1
@@ -215,7 +183,7 @@ def single_server(roles, server_spec)
     $stderr.puts('No such server found!')
   else
     $stderr.puts('Multiple servers identified:')
-    $stderr.puts(show_servers(servers).join("\n"))
+    $stderr.puts(Scalr::ResponseObject::Server.show(servers).join("\n"))
   end
   nil
 end
@@ -606,8 +574,10 @@ Main {
 
   mode 'farm' do
     description 'Details about roles and other data within a farm'
-    option 'farm' do
+
+    option 'farm, -a' do
       argument :required
+      description 'Farm to fetch details for'
     end
 
     def run
@@ -618,41 +588,41 @@ Main {
       aliases = Scalr.aliases('farm', farm_id.to_s)
       puts "FARM: #{farm_id} (our aliases: #{aliases.empty? ? 'N/A' : aliases.join(', ')})"
       puts '========================================'
-      response.content.each do |farm_role|
-        puts show_role(farm_role)
-      end
+      puts response.content.map {|farm_role| farm_role.for_display}.join("\n")
     end
   end
 
   mode 'farm:list' do
-    description 'List all farms'
+    description 'List summary of all farms'
 
     def run
       response = scalr_call(:farms_list)
       return if generic_error(response)
 
-      pat = build_pattern(response.content, [:id, :name, :status], '%{id}: %-{name} - %s')
+      pat = build_pattern(response.content, [:id, :name, :status], '%{id} - %-{name} - %s - aliases: %s')
+      read_aliases
       response.content.each do |farm_info|
-        puts sprintf(pat, farm_info.id, farm_info.name, farm_info.status_formatted)
+        aliases = Scalr.aliases('farm', farm_info.id.to_s)
+        puts sprintf(pat, farm_info.id, farm_info.name, farm_info.status_formatted, aliases.empty? ? 'N/A' : aliases.join(', '))
       end
     end
   end
 
   mode 'config:get' do
 
-    description <<-CONFIG
+    description <<-CONFIG.gsub(/^\s+/, '')
     Retrieve all configuration variables for a farm as key-value pairs,
-    or a single variable as a string suitable for shell-inclusion.
+    or fetch a single variable as a string suitable for shell-inclusion.
     CONFIG
 
-    option 'farm' do
+    option 'farm, -a' do
       argument :required
       description 'Farm to get configuration from'
     end
 
     argument 'key' do
       argument :optional
-      description 'Name of config key for which you want the value'
+      description 'Optional name of config key for which you want the value, if not given will display all'
     end
 
     def run
@@ -679,20 +649,21 @@ Main {
   mode 'config:set' do
     description 'Assign a key/value configuration pair to a farm.'
 
-    option 'farm' do
+    option 'farm, -a' do
       argument :required
+      description "Farm to which we'll assign configuration"
     end
 
     argument 'pair' do
       arity -1
-      description <<-PAIRS
-      Key=value pairs for assignment; example: TTM_HEADPHONES=sennheiser. May also pass a filename
-      of key/value pairs, one per line -- for example, output of 'config:get' works fine.
+      description <<-PAIRS.gsub(/^\s+/, '')
+        One or more key=value pairs for assignment; example: TTM_HEADPHONES=sennheiser. May also pass
+        a filename of key/value pairs, one per line -- for example, output of 'config:get' works fine.
       PAIRS
     end
 
     def run
-      options = collect_options([:farm_id, :farm_role_id], params)
+      options = collect_options([:farm_id], params)
       pairs = read_pairs(params['pair'])
       if pairs.empty?
         raise 'Must provide at least one key=value pair'
@@ -725,8 +696,11 @@ Main {
   end
 
   mode 'script' do
+    description 'Display details about a script'
+
     option 'script' do
       argument :required
+      description 'ID of script to display'
     end
 
     def run
@@ -741,9 +715,12 @@ Main {
   end
 
   mode 'script:list' do
+    description 'Display available scripts'
+
     option 'display_all' do
       cast :bool
       default false
+      description 'true if you want to display all scripts, false to display only TTM scripts'
     end
 
     def run
@@ -759,16 +736,20 @@ Main {
   end
 
   mode 'ssh' do
-    option 'farm' do
+    description 'Generate SSH command to connect to a specific server within a farm and role.'
+
+    option 'farm, -a' do
       argument :required
+      description 'Farm containing role + server'
     end
 
     option 'role' do
-      argument :required
+      argument :optional
+      description 'Role with server, required unless using role name with "server" arg'
     end
 
     argument 'server' do
-
+      description 'Server index to use with role, or "role.index" name (e.g., "rails.2")'
     end
 
     def run
@@ -795,17 +776,23 @@ Main {
   end
 
   mode 'psql' do
+    description 'Connect to a Scalr database via psql command line.'
+
     argument 'db' do
-      description 'One of: master, 1, 2, 3, 4, one, two, three, four'
+      arity 1
+      description 'Database descriptor, one of: master, 1, 2, 3, 4, one, two, three, four; default: master'
+      default 'master'
     end
 
-    option 'farm' do
+    option 'farm, -a' do
       argument :required
+      description 'Farm with database configurations'
     end
 
     option 'url' do
       cast :bool
       default false
+      description 'true if you want to output a URL, false (default) to include "psql" in the output'
     end
 
     def run
