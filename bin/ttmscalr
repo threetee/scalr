@@ -23,19 +23,6 @@ Scalr.read_access_info
 
 ALIAS_FILE = '~/.ttm_scalr_aliases.json'
 
-# hardcoded (a) they shouldn't change, and (b) we're only using them for convenient aliasing
-FARM_ALIASES = {
-  '14433' => %w(Prod-DB-Primary db-master),
-  '14460' => %w(Prod-DB-Shard1 db1),
-  '14462' => %w(Prod-DB-Shard2 db2),
-  '14463' => %w(Prod-DB-Shard3 db3),
-  '14464' => %w(Prod-DB-Shard4 db4),
-  '14498' => %w(Production ttm-production),
-  '15163' => %w(DB-Test),
-  '15274' => %w(PG-TEST),
-  '15275' => %w(Review ttm-review ttm-staging)
-}
-
 def farm_aliases
   read_aliases unless Scalr.has_aliases?('farm')
   Scalr.aliases('farm')
