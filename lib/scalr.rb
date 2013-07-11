@@ -40,8 +40,9 @@ module Scalr
       end
     end
 
-    def aliases(type)
-      @@aliases[type.downcase] || {}
+    def aliases(type, name = nil)
+      a = @@aliases[type.downcase] || {}
+      name.nil? ? a : a[name.downcase] || []
     end
 
     def has_aliases?(type)

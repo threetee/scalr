@@ -58,14 +58,42 @@ def read_aliases
   return true if Scalr.has_aliases?('farm') && Scalr.has_aliases?('role')
 
   alias_path = File.expand_path(ALIAS_FILE)
-  if File.exists?(alias_path)
-    all_aliases = JSON.parse(IO.read(alias_path))
-    farm_aliases      = all_aliases['farm_aliases'] || {}
-    farm_role_aliases = all_aliases['farm_role_aliases'] || {}
-  else
-    farm_aliases      = FARM_ALIASES
-    farm_role_aliases = {}
+  unless File.exists?(alias_path)
+    $stderr.puts <<-ALIASHELP.gsub(/^ {6}/, '')
+      You do not currently have a file for scalr aliases. It will make your life much easier!
+      Creating one for you now in #{alias_path}...
+    ALIASHELP
+    File.open(alias_path, 'w') do |out|
+      out.puts <<-DEFAULTALIASES.gsub(/^ {6}/, '')
+      {
+        "farm_aliases": {
+          "14433": [ "Prod-DB-Primary", "db-master" ],
+          "14460": [ "Prod-DB-Shard1", "db-1" ],
+          "14462": [ "Prod-DB-Shard2", "db-2" ],
+          "14463": [ "Prod-DB-Shard3", "db-3" ],
+          "14464": [ "Prod-DB-Shard4", "db-4" ],
+          "14498": [ "Production", "ttm-production" ],
+          "15163": [ "DB-Test" ],
+          "15274": [ "PG-TEST" ],
+          "15275": [ "Review", "ttm-review", "ttm-staging" ],
+          "15331": [ "Winters" ]
+        },
+        "farm_role_aliases": {
+          "RailsAppServer" : ["web", "rails"],
+          "Sidekiq"        : ["sidekiq"],
+          "Bunchball"      : ["bunchball", "bb"],
+          "SystemWatcher"  : ["watcher"],
+          "Reports"        : ["reports"],
+          "DevDebug"       : ["debug"]
+        }
+      }
+      DEFAULTALIASES
+    end
+    $stderr.puts "DONE - file written. Let's go!"
   end
+  all_aliases = JSON.parse(IO.read(alias_path))
+  farm_aliases      = all_aliases['farm_aliases'] || {}
+  farm_role_aliases = all_aliases['farm_role_aliases'] || {}
 
   farm_aliases.each {|k,v| Scalr.add_alias('farm', k, v)}
   farm_role_aliases.each {|k,v| Scalr.add_alias('role', k, v)}
@@ -75,7 +103,8 @@ end
 def generic_error(response)
   return true unless response
   return false if response.success?
-  puts "Error! [Code: #{response.code}] [Message: #{response.error}]"
+  $stderr.puts("Error! [Code: #{response.code}] [Message: #{response.error}]")
+  error_code 1
   true
 end
 
@@ -120,13 +149,10 @@ def resolve_server_index(index, params, role_id = nil)
     servers = role.servers
   elsif option_by_name(params, 'role') && params['role'].given?
     role_ids = resolve_farm_role(params['role'].value, params, response)
-    puts "Resolved role to #{role_ids.inspect}"
     servers = response.content.find {|role_info| role_ids.include?(role_info[:id])}.servers
   else
     servers = response.content.flat_map {|role_info| role_info.servers}
   end
-
-  puts "Server after resolution: #{servers}"
 
   matching = servers.find_all {|server| index == server.index}
 
@@ -146,9 +172,10 @@ end
 # example of data structure: http://wiki.scalr.com/display/docs/FarmGetDetails
 def show_role(farm_role)
   servers = farm_role.servers.empty? ? ['None'] : show_servers(farm_role.servers)
-  <<-ROLEINFO
-  ROLE: #{farm_role.name}
-    Farm role ID:  #{farm_role.id}  (Role ID: #{farm_role.role_id || 'N/A'})
+  aliases = Scalr.aliases('role', farm_role.name)
+  <<-ROLEINFO.gsub(/^  /, '')
+  ROLE: #{farm_role.name} (our aliases: #{aliases.empty? ? 'N/A' : aliases.join(', ')})
+    Farm role ID:  #{farm_role.id}
     Scaling:       #{show_scaling(farm_role)}
     Platform:      #{farm_role.platform_properties.to_s}
     Servers:
@@ -299,7 +326,7 @@ def scalr_call(action_name, options = {})
   begin
     Scalr.send(action_name, options)
   rescue Scalr::Request::InvalidInputError => e
-    puts "ERROR: #{e.message}"
+    $stderr.puts("ERROR: #{e.message}")
     nil
   end
 end
@@ -602,6 +629,10 @@ Main {
       response = dispatch(:farm_get_details, params)
       return if generic_error(response)
 
+      farm_id = response.request_inputs['FarmID']
+      aliases = Scalr.aliases('farm', farm_id.to_s)
+      puts "FARM: #{farm_id} (our aliases: #{aliases.empty? ? 'N/A' : aliases.join(', ')})"
+      puts '========================================'
       response.content.each do |farm_role|
         puts show_role(farm_role)
       end
@@ -807,7 +838,7 @@ Main {
             map{|var| var.to_s}.
             join("\n  ")
         $stderr.puts <<-MISSING.gsub(/^ {11}/, '')
-           CONFIG NOT FOUND!
+           DB CONFIG NOT FOUND!
 
            No such DB config key exists [Tried: #{key}]. If you're looking for a shard
            connection use one of 1..4 or 'one'..'four' as the shard identifier.
