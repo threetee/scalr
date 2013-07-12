@@ -415,6 +415,9 @@ module Scalr
     end
 
     class SourceItem < StructWithOptions.new(:auth_type, :id, :type, :url)
+      def self.as_hash(items)
+        Hash[ items.map{|si| [si.id, si.url]} ]
+      end
     end
 
     class Variable < StructWithOptions.new(:name, :value)

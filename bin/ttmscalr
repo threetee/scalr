@@ -1,15 +1,7 @@
 #!/usr/bin/env ruby
 
-# format of invocation:
-#
-# ttmscalr [command] [option...] -a application
-# cribbed this from 'heroku' binary...
-
-# resolve bin path, ignoring symlinks
 require 'pathname'
 bin_path = Pathname.new(__FILE__).realpath
-
-# add self to libpath
 $:.unshift File.expand_path('../../lib', bin_path)
 
 require 'date'
@@ -17,6 +9,7 @@ require 'json'
 require 'main'
 require 'scalr'
 require 'scalr/ttm'
+require 'scalr/caller'
 require 'scalr/deployment_monitor'
 
 Scalr.read_access_info
@@ -27,74 +20,6 @@ def generic_error(response)
   return false if response.success?
   $stderr.puts("ERROR - #{response.error}]")
   true
-end
-
-def resolve_application(app_alias)
-  return app_alias if app_alias.match(/^\d+$/) || Scalr.is_aliased_name?('application', app_alias)
-  Scalr.match_alias('application', app_alias)
-end
-
-def resolve_farm(farm_alias)
-  return farm_alias if farm_alias.match(/^\d+$/) || Scalr.is_aliased_name?('farm', farm_alias)
-  Scalr.match_alias('farm', farm_alias)
-end
-
-# returns an array of farm role IDs
-def resolve_farm_role(name, params, response = nil)
-  role_names = []
-  if Scalr.is_aliased_name?('role', name)
-    role_names << name
-  elsif name != 'all'
-    role_names << Scalr.match_alias('role', name)
-  end
-
-  unless response
-    response = dispatch(:farm_get_details, params)
-    unless response.success?
-      $stderr.puts('Failed to get farm details!')
-      generic_error(response)
-      return []
-    end
-  end
-
-  response.content.
-      find_all {|role_info| name == 'all' || role_names.include?(role_info.name.downcase)}.
-      map {|role_info| role_info.id}
-end
-
-# given a count of a server within a role, resolve it to a fully-qualified
-# server ID (GUID)
-def resolve_server_index(index, params, role_id = nil)
-  response = dispatch(:farm_get_details, params)
-  return nil unless response.success?
-
-  # if we have a role available to disambiguate, use it
-  if role_id
-    role = response.content.find {|role_info| role_id.to_s == role_info[:id]}
-    unless role
-      raise "No role with ID #{role_id} exists in farm #{params['farm'].value}"
-    end
-    servers = role.servers
-  elsif option_by_name(params, 'role') && params['role'].given?
-    role_ids = resolve_farm_role(params['role'].value, params, response)
-    servers = response.content.find {|role_info| role_ids.include?(role_info[:id])}.servers
-  else
-    servers = response.content.flat_map {|role_info| role_info.servers}
-  end
-
-  matching = servers.find_all {|server| index == server.index}
-
-  # if too many, remove non-running ones
-  if matching.length > 1
-    matching = servers.find_all {|server| server.running?}
-  end
-
-  # if STILL too many you probably didn't assign a role...
-  if matching.length > 1
-    raise "Too many servers match index '#{index}' within the farm! Specify a role to disambiguate."
-  end
-
-  matching.empty? ? nil : matching.first.id
 end
 
 def single_server(roles, server_spec)
@@ -109,7 +34,6 @@ def single_server(roles, server_spec)
   end
   nil
 end
-
 
 def logging_options(main)
   main.option 'farm, -a' do
@@ -132,119 +56,23 @@ def logging_options(main)
   end
 end
 
-# to save typing we map parameters to shorter names
-#   Scalr API name   => Our short name
-PARAM_ALIASES = {
-    application_id:     :application,
-    farm_id:            :farm,
-    records_limit:      :limit,
-    remote_path:        :path,
-    farm_role_id:       :role,
-    script_id:          :script,
-    server_id:          :server,
-    start_from:         :start,
-    deployment_task_id: :task,
-}
-
-def map_parameter_key(key)
-  PARAM_ALIASES[key.to_sym] || key.to_sym
-end
-
-# allow use of either our short name or Scalr API name
-def collect_options(api_names, params)
-  options = {}
-  api_names.each do |api_name|
-    cli_name = map_parameter_key(api_name)
-    first_value = first_value_for(params, cli_name, api_name)
-    value = transform_value(api_name, first_value, params)
-    options[api_name] = value if value
-  end
-  options
-end
-
-def first_value_for(params, *keys)
-  keys.each do |key|
-    option = option_by_name(params, key)
-    if option
-      value = option.values.length > 1 ? option.values : option.value
-      return value if value
-    end
-  end
-  nil
-end
-
-# Note that we're using params.find vs params['name'] because
-# the latter kills the program (weird!)
-def option_by_name(params, name)
-  params.find {|option| option.name.to_s == name.to_s}
-end
-
-# allow transformations/lookups of data from the user
-def transform_value(name, value, params)
-  if name == :farm_id && ! value.nil?
-    resolve_farm(value)
-  elsif name == :farm_role_id && option_by_name(params, 'farm') && ! value.nil?
-    roles = resolve_farm_role(value, params)
-    if roles.empty?
-      raise "Cannot resolve farm role [Farm: #{params['farm'].value}] [Role: #{value}]"
-    else
-      roles.first
-    end
-  elsif name == :server_id && ! value.nil?
-    if match_info = value.match(/^(\w+)\.(\d+)$/) # heroku format
-      role_name = match_info[1]
-      server_index = match_info[2]
-      roles = resolve_farm_role(role_name, params)
-      if roles.empty?
-        raise "Cannot resolve farm role [Farm: #{params['farm'].value}] [Role: #{role_name}]"
-      end
-      server_guid = resolve_server_index(server_index, params, roles.first)
-      if server_guid.nil?
-        raise "Cannot resolve server index to GUID [Farm: #{params['farm'].value}] [Role/server: #{value}]"
-      end
-      server_guid
-    elsif name == :server_id && value.to_s.length < 4
-      server_guid = resolve_server_index(value, params)
-      if server_guid.nil?
-        raise "Cannot resolve server index to GUID [Farm: #{params['farm'].value}] [Role: #{params['role'].value}] [Server index: #{value}]"
-      end
-      server_guid
-    else
-      value
-    end
-  elsif name == :application_id && ! value.nil?
-    resolve_application(value)
-  else
-    value
-  end
-end
-
 def dispatch(action_name, params)
-  request_info = Scalr::Request.action(action_name)
-  raise "Unknown action [Given: #{action_name.to_s}]" unless request_info
-  options = collect_options(request_info[:inputs].keys, params)
-  scalr_call(action_name, options)
+  Scalr::Caller.new(action_name).dispatch(params)
 end
 
 def scalr_call(action_name, options = {})
-  begin
-    Scalr.send(action_name, options)
-  rescue Scalr::Request::InvalidInputError => e
-    $stderr.puts("ERROR: #{e.message}")
-    nil
-  end
+  Scalr::Caller.new(action_name).invoke(options)
 end
 
 # implementation notes:
 # - Main seems to dispatch on mode-names in first-match order. So you'll need
 #   to have a mode 'deploy' before a mode 'deploy:log', otherwise it will never
 #   get invoked. So least-specific modes should be before most-specific.
-
 Main {
   description <<-DESC
-  Command-line interface for Scalr, with TTM-specific additions. See README.md for more.
+    Command-line interface for Scalr, with TTM-specific additions which make it
+    look more like the heroku application. See README.md for more.
   DESC
-
 
   ########## Deployment
 
@@ -411,7 +239,7 @@ Main {
     end
 
     def run
-      options = collect_options([:farm_id, :farm_role_id], params)
+      options = Scalr::Caller.collect_options(params, [:farm_id, :farm_role_id])
       action = nil
       action = :farm_launch   if options[:farm_id]
       action = :server_launch if options[:farm_role_id]
@@ -445,7 +273,7 @@ Main {
     end
 
     def run
-      options = collect_options([:farm_id, :server_id], params)
+      options = Scalr::Caller.collect_options(params, [:farm_id, :server_id])
       action  = nil
       action = :farm_terminate   if options[:farm_id]
       action = :server_terminate if options[:server_id]
@@ -462,12 +290,14 @@ Main {
   end
 
   mode 'application:list' do
+    description 'List available applications and their sources'
+
     def run
       application_response = scalr_call(:dm_applications_list)
       source_response = scalr_call(:dm_sources_list)
       return if generic_error(application_response) || generic_error(source_response)
 
-      sources = Hash[ source_response.content.map{|si| [si.id, si.url]} ]
+      sources = Scalr::ResponseObject::SourceItem.as_hash(source_response)
       puts Scalr::ResponseObject::Application.
                show_items(application_response.content, sources).join("\n")
     end
@@ -535,10 +365,9 @@ Main {
   end
 
   mode 'config:get' do
-
     description <<-CONFIG.gsub(/^\s+/, '')
-    Retrieve all configuration variables for a farm as key-value pairs,
-    or fetch a single variable as a string suitable for shell-inclusion.
+      Retrieve all configuration variables for a farm as key-value pairs,
+      or fetch a single variable as a string suitable for shell-inclusion.
     CONFIG
 
     option 'farm, -a' do
@@ -548,7 +377,10 @@ Main {
 
     argument 'key' do
       argument :optional
-      description 'Optional name of config key for which you want the value, if not given will display all'
+      description <<-KEY.gsub(/^\s+/, '')
+        Optional name of config key for which you want the value only;
+        if not given we'll display all keys and values
+      KEY
     end
 
     def run
@@ -584,7 +416,7 @@ Main {
     end
 
     def run
-      options = collect_options([:farm_id], params)
+      options = Scalr::Caller.collect_options(params, [:farm_id])
       pairs = Scalr::ResponseObject::Variable.read(params['pair'].values)
       if pairs.empty?
         raise 'Must provide at least one key=value pair'
