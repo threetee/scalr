@@ -22,19 +22,6 @@ def generic_error(response)
   true
 end
 
-def single_server(roles, server_spec)
-  servers = Scalr::ResponseObject::FarmRole.find_servers(roles, server_spec)
-  return servers.first if servers.length == 1
-
-  if servers.empty?
-    $stderr.puts('No such server found!')
-  else
-    $stderr.puts('Multiple servers identified:')
-    $stderr.puts(Scalr::ResponseObject::Server.show_items(servers).join("\n"))
-  end
-  nil
-end
-
 def logging_options(main)
   main.option 'farm, -a' do
     argument :required
@@ -489,7 +476,8 @@ Main {
       response = dispatch(:farm_get_details, params)
       return if generic_error(response)
 
-      server = single_server(response.content, params['server'].value)
+      server = Scalr::ResponseObject::FarmRole.
+                 single_server(response.content, params['server'].value)
 
       unless server
         $stderr.puts("Failed to identify server with: #{params['server'].value}")

@@ -147,6 +147,19 @@ module Scalr
         roles.map {|role| role.find_server(server_spec)}.compact
       end
 
+      def self.single_server(roles, server_spec)
+        servers = Scalr::ResponseObject::FarmRole.find_servers(roles, server_spec)
+        return servers.first if servers.length == 1
+
+        if servers.empty?
+          $stderr.puts('No such server found!')
+        else
+          $stderr.puts('Multiple servers identified:')
+          $stderr.puts(Scalr::ResponseObject::Server.show_items(servers).join("\n"))
+        end
+        nil
+      end
+
       # 'server_spec' could be an index (1), or role.index (rails.1)
       # will return a ::Server object if matching or nil (if not found)
       def find_server(server_spec)
