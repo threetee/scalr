@@ -404,7 +404,7 @@ Main {
   mode 'log:script' do
     logging_options(self)
 
-    option 'role' do
+    option 'role, -r' do
       argument :optional
     end
     option 'expand' do
@@ -466,12 +466,12 @@ Main {
   mode 'launch' do
     description 'Launch a Farm or Server'
 
-    option 'farm' do
+    option 'farm, -a' do
       argument :optional
       description 'Farm to launch'
     end
 
-    option 'role' do
+    option 'role, -r' do
       argument :optional
       description 'Farm role to launch'
     end
@@ -500,7 +500,7 @@ Main {
   mode 'terminate' do
     description 'Terminate a farm or server'
 
-    option 'farm' do
+    option 'farm, -a' do
       argument :optional
       description 'Farm to terminate'
     end
@@ -714,7 +714,7 @@ Main {
       description 'Farm containing role + server'
     end
 
-    option 'role' do
+    option 'role, -r' do
       argument :optional
       description 'Role with server, required unless using role name with "server" arg'
     end
