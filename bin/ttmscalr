@@ -83,8 +83,6 @@ Main {
     def run
       response = dispatch(:dm_application_deploy, params)
       return if generic_error(response)
-      puts Scalr::ResponseObject::DeploymentTaskItem.
-               show_items(response.content).join("\n")
       inputs = response.request_inputs
       monitor = Scalr::DeploymentMonitor.new(
                   tasks: response.content, farm_id: inputs['FarmID'],
@@ -293,7 +291,8 @@ Main {
       source_response = scalr_call(:dm_sources_list)
       return if generic_error(application_response) || generic_error(source_response)
 
-      sources = Scalr::ResponseObject::SourceItem.as_hash(source_response)
+      sources = Scalr::ResponseObject::SourceItem.
+                    as_hash(source_response.content)
       puts Scalr::ResponseObject::Application.
                show_items(application_response.content, sources).join("\n")
     end

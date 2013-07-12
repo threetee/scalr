@@ -8,7 +8,8 @@ module Scalr
     end
 
     def run
-      puts "Nothing to see here yet..."
+      puts Scalr::ResponseObject::DeploymentTaskItem.show_items(@tasks).join("\n")
+      puts "Not ACTUALLY monitoring yet..."
     end
   end
 end
