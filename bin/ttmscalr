@@ -17,78 +17,10 @@ require 'json'
 require 'main'
 require 'scalr'
 require 'scalr/ttm'
+require 'scalr/deployment_monitor'
 
 Scalr.read_access_info
 #Scalr.debug = $stderr
-
-ALIAS_FILE = '~/.ttm_scalr_aliases.json'
-
-def farm_aliases
-  read_aliases unless Scalr.has_aliases?('farm')
-  Scalr.aliases('farm')
-end
-
-def farm_role_aliases
-  read_aliases unless Scalr.has_aliases?('role')
-  Scalr.aliases('role')
-end
-
-# aliases stored in ~/.ttmscalr_aliases as JSON
-# format:
-#   'farm_aliases': {
-#     'id': ['name', 'name'...]
-#   },
-#   'farm_role_aliases': {
-#     'id' : ['name', 'name'...]
-#   }
-def read_aliases
-  return true if Scalr.has_aliases?('farm') && Scalr.has_aliases?('role')
-
-  alias_path = File.expand_path(ALIAS_FILE)
-  unless File.exists?(alias_path)
-    $stderr.puts <<-ALIASHELP.gsub(/^ {6}/, '')
-      You do not currently have a file for scalr aliases. It will make your life much easier!
-      Creating one for you now in #{alias_path}...
-    ALIASHELP
-    File.open(alias_path, 'w') do |out|
-      out.puts <<-DEFAULTALIASES.gsub(/^ {6}/, '')
-      {
-        "farm": {
-          "15356": [ "Prod-DB-Primary", "master" ],
-          "15357": [ "Prod-DB-Shard1", "shard1" ],
-          "15358": [ "Prod-DB-Shard2", "shard2" ],
-          "15359": [ "Prod-DB-Shard3", "shard3" ],
-          "15360": [ "Prod-DB-Shard4", "shard4" ],
-          "14498": [ "Production", "ttm-production" ],
-          "15163": [ "DB-Test" ],
-          "15274": [ "PG-TEST" ],
-          "15275": [ "Review", "ttm-review", "ttm-staging" ],
-          "15331": [ "Winters" ]
-        },
-        "role": {
-          "RailsAppServer" : ["web", "rails"],
-          "Sidekiq"        : ["sidekiq"],
-          "Bunchball"      : ["bunchball", "bb"],
-          "SystemWatcher"  : ["watcher"],
-          "Reports"        : ["reports"],
-          "DevDebug"       : ["debug"]
-        },
-        "application": {
-          "968":  ["production", "master"],
-          "1204": ["review", "staging"]
-        }
-      }
-      DEFAULTALIASES
-    end
-    $stderr.puts "DONE - file written. Let's go!"
-  end
-
-  JSON.parse(IO.read(alias_path)).each do |alias_name, alias_map|
-    alias_map.each{|k,v| Scalr.add_alias(alias_name, k, v)}
-  end
-
-  true
-end
 
 def generic_error(response)
   return true unless response
@@ -98,20 +30,17 @@ def generic_error(response)
 end
 
 def resolve_application(app_alias)
-  read_aliases
   return app_alias if app_alias.match(/^\d+$/) || Scalr.is_aliased_name?('application', app_alias)
   Scalr.match_alias('application', app_alias)
 end
 
 def resolve_farm(farm_alias)
-  read_aliases
   return farm_alias if farm_alias.match(/^\d+$/) || Scalr.is_aliased_name?('farm', farm_alias)
   Scalr.match_alias('farm', farm_alias)
 end
 
 # returns an array of farm role IDs
 def resolve_farm_role(name, params, response = nil)
-  read_aliases
   role_names = []
   if Scalr.is_aliased_name?('role', name)
     role_names << name
@@ -341,6 +270,11 @@ Main {
       return if generic_error(response)
       puts Scalr::ResponseObject::DeploymentTaskItem.
                show_items(response.content).join("\n")
+      inputs = response.request_inputs
+      monitor = Scalr::DeploymentMonitor.new(
+                  tasks: response.content, farm_id: inputs['FarmID'],
+                  role_id: inputs['FarmRoleID'], application_id: inputs['ApplicationId'])
+      monitor.run
     end
   end
 
@@ -533,7 +467,6 @@ Main {
       source_response = scalr_call(:dm_sources_list)
       return if generic_error(application_response) || generic_error(source_response)
 
-      read_aliases
       sources = Hash[ source_response.content.map{|si| [si.id, si.url]} ]
       puts Scalr::ResponseObject::Application.
                show_items(application_response.content, sources).join("\n")
@@ -553,7 +486,6 @@ Main {
       return if generic_error(response)
 
       farm_id = response.request_inputs['FarmID']
-      read_aliases
       aliases = Scalr.aliases('farm', farm_id.to_s)
 
       puts "FARM: #{farm_id} (aliases: #{aliases.empty? ? 'N/A' : aliases.join(', ')})"
@@ -598,8 +530,6 @@ Main {
     def run
       response = scalr_call(:farms_list)
       return if generic_error(response)
-
-      read_aliases
       puts Scalr::ResponseObject::FarmSummary.show_items(response.content).join("\n")
     end
   end

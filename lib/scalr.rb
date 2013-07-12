@@ -24,13 +24,17 @@ module Scalr
   mattr_accessor :version
   @@version = "2.0.0"
 
-  @@aliases = {}
+  @@aliases = nil
+
+  mattr_accessor :alias_reader
+  @@alias_reader = nil
 
   class << self
 
     def add_alias(type, name, alias_to_add)
       type = type.downcase
       name = name.downcase
+      @@aliases ||= {}
       @@aliases[type] ||= {}
       @@aliases[type][name] ||= []
       if alias_to_add.instance_of?(Array)
@@ -41,18 +45,18 @@ module Scalr
     end
 
     def aliases(type, name = nil)
+      read_aliases if @@aliases.nil?
       a = @@aliases[type.downcase] || {}
       name.nil? ? a : a[name.downcase] || []
     end
 
-    def has_aliases?(type)
-      aliases(type).size > 0
+    def has_aliases?(*types)
+      return false if @@aliases.nil? || @@aliases.empty?
+      types.all? {|type| aliases(type).size > 0}
     end
 
     def is_alias?(type, name, alias_to_check)
-      type = type.downcase
-      name = name.downcase
-      @@aliases[type] && @@aliases[type][name] && @@aliases[type][name].include?(alias_to_check.downcase)
+      aliases(type, name).include?(alias_to_check.downcase)
     end
 
     def is_aliased_name?(type, name)
@@ -64,6 +68,20 @@ module Scalr
         return name if aliases.include?(to_match)
       end
       nil
+    end
+
+    def read_aliases
+      if @@alias_reader.nil?
+        $stderr.puts('Cannot read aliases: no Scalr.alias_reader assigned!')
+        @@aliases = {}
+      else
+        all_aliases = @@alias_reader.read_aliases
+        if all_aliases
+          all_aliases.each do |alias_type, alias_map|
+            alias_map.each{|name, aliases| Scalr.add_alias(alias_type, name, aliases)}
+          end
+        end
+      end
     end
 
     def method_missing(method_id, *arguments)

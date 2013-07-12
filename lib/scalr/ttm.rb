@@ -1,7 +1,77 @@
 require 'pathname'
 
 module Scalr
+  class TTMAliasReader
+
+    DEFAULT_ALIAS_FILE = '~/.ttm_scalr_aliases.json'
+
+    def initialize(alias_file = DEFAULT_ALIAS_FILE)
+      @alias_file = alias_file
+    end
+
+    # aliases stored in ~/.ttmscalr_aliases as JSON
+    # format:
+    #   "farm": {
+    #     "id": ["name", "name"...]
+    #   },
+    #   "role": {
+    #     "id" : ["name", "name"...]
+    #   },
+    #   "application": {
+    #     "id" : ["name", "name"...]
+    #   }...
+    def read_aliases
+      return {} if Scalr.has_aliases?('farm', 'role', 'application')
+
+      alias_path = File.expand_path(@alias_file)
+
+      unless File.exists?(alias_path)
+        $stderr.puts <<-ALIASHELP.gsub(/^\s+/, '')
+          You do not currently have a file for scalr aliases.
+          Creating one for you now in #{alias_path}...
+        ALIASHELP
+
+        File.open(alias_path, 'w') do |out|
+          out.puts <<-DEFAULTALIASES.gsub(/^ {12}/, '')
+            {
+              "farm": {
+                "15356": [ "Prod-DB-Primary", "master" ],
+                "15357": [ "Prod-DB-Shard1", "shard1" ],
+                "15358": [ "Prod-DB-Shard2", "shard2" ],
+                "15359": [ "Prod-DB-Shard3", "shard3" ],
+                "15360": [ "Prod-DB-Shard4", "shard4" ],
+                "14498": [ "Production", "ttm-production" ],
+                "15163": [ "DB-Test" ],
+                "15274": [ "PG-TEST" ],
+                "15275": [ "Review", "ttm-review", "ttm-staging" ],
+                "15331": [ "Winters" ]
+              },
+              "role": {
+                "RailsAppServer" : ["web", "rails"],
+                "Sidekiq"        : ["sidekiq"],
+                "Bunchball"      : ["bunchball", "bb"],
+                "SystemWatcher"  : ["watcher"],
+                "Reports"        : ["reports"],
+                "DevDebug"       : ["debug"]
+              },
+              "application": {
+                "968":  ["production", "master"],
+                "1204": ["review", "staging"]
+              }
+            }
+          DEFAULTALIASES
+        end
+        $stderr.puts "DONE - file written. Let's go!"
+      end
+      JSON.parse(IO.read(alias_path))
+    end
+  end
+end
+
+module Scalr
   Scalr.version = '2.3.0'
+
+  Scalr.alias_reader = Scalr::TTMAliasReader.new()
 
   def self.read_access_info
     if ENV['SCALR_KEY_ID'] && ENV['SCALR_ACCESS_KEY']
