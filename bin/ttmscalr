@@ -213,7 +213,7 @@ Main {
   end
 
   mode 'launch' do
-    description 'Launch a Farm or Server'
+    description 'Launch a whole farm, or launch a server within a role'
 
     option 'farm, -a' do
       argument :optional
@@ -247,32 +247,41 @@ Main {
   end
 
   mode 'terminate' do
-    description 'Terminate a farm or server'
+    description 'Terminate a server'
 
     option 'farm, -a' do
-      argument :optional
-      description 'Farm to terminate'
+      argument :required
+      description 'Farm "server" argument is in'
     end
 
-    option 'server' do
-      argument :optional
-      description 'Server ID to terminate (GUID required)'
+    argument 'server' do
+      description 'Server alias to terminate (e.g., "rails.1")'
     end
 
     def run
-      options = Scalr::Caller.collect_options(params, [:farm_id, :server_id])
-      action  = nil
-      action = :farm_terminate   if options[:farm_id]
-      action = :server_terminate if options[:server_id]
-      if action.nil?
-        raise "Must provide either 'farm' or 'server' to terminate"
-      elsif action == :farm_terminate
-        $stderr.puts "Sorry, Andre won't let us run this yet!"
-      else
-        response = scalr_call(action, options)
-        return if generic_error(response)
-        puts "Result: #{response.content}"
-      end
+      response = dispatch(:server_terminate, params)
+      return if generic_error(response)
+      puts "Server #{response.request_inputs['ServerID']} - result: #{response.content}"
+    end
+  end
+
+  mode 'exterminate' do
+    def run
+      puts <<-DALEK.gsub(/^ {6}/, '')
+                 EX-TER-MIN-ATE!
+                   /
+              ___ /
+      D>=G==='   '.
+            |======|
+            |======|
+        )--/]IIIIII]
+           |_______|
+           C O O O D
+          C O  O  O D
+         C  O  O  O  D
+         C__O__O__O__D
+        [_____________]
+      DALEK
     end
   end
 

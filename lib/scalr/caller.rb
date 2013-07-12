@@ -16,7 +16,7 @@ module Scalr
     }
 
     def self.collect_options(params, api_names)
-      new.collect_options(params, api_names)
+      new(nil).collect_options(params, api_names)
     end
 
     def initialize(action_name)
@@ -28,13 +28,15 @@ module Scalr
     end
 
     def dispatch(params)
-      options = collect_options(params)
+      options = collect_options(params, @request_info[:inputs].keys)
       invoke(options)
     end
 
     def invoke(options = {})
+      valid_keys = @request_info[:inputs].keys
+      valid_options = options.delete_if {|key,_| !valid_keys.include?(key)}
       begin
-        Scalr.send(@action_name, options)
+        Scalr.send(@action_name, valid_options)
       rescue Scalr::Request::InvalidInputError => e
         $stderr.puts("ERROR: #{e.message}")
         nil
@@ -42,7 +44,7 @@ module Scalr
     end
 
     # allow use of either our short name or Scalr API name
-    def collect_options(params, api_names = @request_info[:inputs].keys)
+    def collect_options(params, api_names)
       options = {}
       api_names.each do |api_name|
         cli_name = map_parameter_key(api_name)
@@ -167,7 +169,7 @@ module Scalr
         servers = response.content.flat_map {|role_info| role_info.servers}
       end
 
-      matching = servers.find_all {|server| index == server.index}
+      matching = servers.find_all {|server| index.to_i == server.index}
 
       # if too many, remove non-running ones
       if matching.length > 1
