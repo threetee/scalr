@@ -25,6 +25,13 @@ module Scalr
         @request_info = Scalr::Request.action(action_name)
         raise "Unknown action [Given: #{action_name.to_s}]" unless @request_info
       end
+      @partial_options = {}
+    end
+
+    # store options away until later, will be re-used
+    # with every invoke()
+    def partial_options(options)
+      @partial_options = @partial_options.merge(options)
     end
 
     def dispatch(params)
@@ -34,7 +41,9 @@ module Scalr
 
     def invoke(options = {})
       valid_keys = @request_info[:inputs].keys
-      valid_options = options.delete_if {|key,_| !valid_keys.include?(key)}
+      valid_options = options.
+          merge(@partial_options).
+          delete_if {|key,_| !valid_keys.include?(key)}
       begin
         Scalr.send(@action_name, valid_options)
       rescue Scalr::Request::InvalidInputError => e
@@ -44,6 +53,8 @@ module Scalr
     end
 
     # allow use of either our short name or Scalr API name
+    # return: hash of API option name (e.g., :farm_id) to value that
+    #         will be used for that option
     def collect_options(params, api_names)
       options = {}
       api_names.each do |api_name|

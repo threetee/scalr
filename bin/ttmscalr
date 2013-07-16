@@ -10,7 +10,7 @@ require 'main'
 require 'scalr'
 require 'scalr/ttm'
 require 'scalr/caller'
-require 'scalr/deployment_monitor'
+require 'scalr/deployer'
 
 Scalr.read_access_info
 #Scalr.debug = $stderr
@@ -64,6 +64,8 @@ Main {
   ########## Deployment
 
   mode 'deploy' do
+    description 'Deploy an application to all roles within a farm.'
+
     argument 'application' do
       description 'Application ID/alias to deploy. (Use "application:list" to list.)'
     end
@@ -75,19 +77,36 @@ Main {
       argument :optional
       description 'Path to which the application will be deployed (rarely needed)'
     end
-    option 'role, -r' do
+
+    def run
+      options = Scalr::Caller.collect_options(params, [:farm_id, :application_id, :remote_path])
+      Scalr::Deployer.new(options).execute
+    end
+  end
+
+  mode 'deploy:monitor' do
+    argument 'application' do
+      description 'Application ID/alias to deploy. (Use "application:list" to list.)'
+    end
+    option 'farm, -a' do
+      argument :optional
+      description 'Farm to use when resolving role (if aliased)'
+    end
+    option 'task' do
       argument :required
-      description 'Role to which the application will be deployed'
+      arity -1
+      description 'One or more tasks that are already running'
     end
 
     def run
-      response = dispatch(:dm_application_deploy, params)
-      return if generic_error(response)
-      inputs = response.request_inputs
-      monitor = Scalr::DeploymentMonitor.new(
-                  tasks: response.content, farm_id: inputs['FarmID'],
-                  role_id: inputs['FarmRoleID'], application_id: inputs['ApplicationId'])
-      monitor.run
+      options = Scalr::Caller.collect_options(params, [:farm_id, :application_id, :remote_path])
+      deployer = Scalr::Deployer.new(options)
+      deployer.initialize_monitors
+
+      # fetch given tasks and pass them to the deployer,
+      # letting it figure out which monitor each task should go to
+
+      deployer.poll_monitors
     end
   end
 
@@ -123,8 +142,7 @@ Main {
   end
 
   mode 'task' do
-    option 'task' do
-      argument :required
+    argument 'task' do
       description 'ID of deployment task (use "deploy:tasks" + farm and role to lookup)'
     end
 

@@ -253,3 +253,10 @@ or just those matching a substring:
       => remote_path (RemotePath) [Required? true => default: /var/www]
 
     dm_applications_list (DmApplicationsList) @ 2.3.0
+
+# Scalr API ideas
+
+* Tasks should have a timestamp (dm_deployment_tasks_list)
+* I should be able to fetch logs not only by a pagination offset, but also before/after a timestamp
+
+

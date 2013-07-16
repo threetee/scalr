@@ -267,6 +267,10 @@ module Scalr
         end
       end
 
+      def after?(time_to_check)
+        timestamp > time_to_check
+      end
+
       def matches_source(match_source)
         match_source && (match_source == 'all' || match_source == '*' || match_source == source || source.nil?)
       end
@@ -282,6 +286,10 @@ module Scalr
 
       def timestamp_formatted
         format_timestamp(timestamp)
+      end
+
+      def to_s
+        self.class.show_items([self])
       end
     end
 
@@ -375,6 +383,10 @@ module Scalr
         end
       end
 
+      def after?(time_to_check)
+        timestamp > time_to_check
+      end
+
       def failure?
         !success?
       end
@@ -389,6 +401,10 @@ module Scalr
 
       def timestamp_formatted
         format_timestamp(timestamp)
+      end
+
+      def to_s
+        self.class.show_items([self])
       end
     end
 
