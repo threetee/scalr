@@ -100,6 +100,34 @@ module Scalr
         tasks.map {|task| sprintf(pat, task.id, task.status, task.server_id)}
       end
 
+      def deployed?
+        status == 'deployed'
+      end
+
+      def deploying?
+        status == 'deploying'
+      end
+
+      def failed?
+        status == 'failed'
+      end
+
+      def failure_url
+        "https://my.scalr.com/#/dm/tasks/#{id}/failureDetails"
+      end
+
+      def log_url
+        "https://my.scalr.com/#/dm/tasks/#{id}/logs"
+      end
+
+      def pending?
+        status == 'pending'
+      end
+
+      def server_short
+        server_id.gsub(/^(\w+)\-.+$/, '\1')
+      end
+
       # {:serverid=>"57f02c81-6020-408a-8125-eecffa838673", :deploymenttaskid=>"f81461e34ce3",
       #  :farmroleid=>"53494", :remotepath=>"/var/www", :status=>"pending"}
     end
@@ -339,10 +367,9 @@ module Scalr
     class ScriptSummary < StructWithOptions.new(:description, :id, :latest_revision, :name)
       def self.show_items(summaries, display_all = false)
         pat = build_pattern(summaries, [:id, :description, :name], '%-{id} %-{name} - %s')
-        summaries.map do |summary|
-          next unless display_all || summary.ttm?
-          sprintf(pat, summary.id, summary.name, summary.description)
-        end
+        summaries.map {|summary|
+          display_all || summary.ttm? ? sprintf(pat, summary.id, summary.name, summary.description) : nil
+        }.compact
       end
 
       def ttm?
