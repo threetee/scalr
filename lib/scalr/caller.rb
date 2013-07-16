@@ -32,6 +32,7 @@ module Scalr
     # with every invoke()
     def partial_options(options)
       @partial_options = @partial_options.merge(options)
+      self
     end
 
     def dispatch(params)
@@ -111,7 +112,7 @@ module Scalr
             raise "Cannot resolve server index to GUID [Farm: #{params['farm'].value}] [Role/server: #{value}]"
           end
           server_guid
-        elsif name == :server_id && value.to_s.length < 4
+        elsif value.to_s.length < 10 # < 4 => int, < 10 => string with ID start (short hash)
           server_guid = resolve_server_index(value, params)
           if server_guid.nil?
             raise "Cannot resolve server index to GUID [Farm: #{params['farm'].value}] [Role: #{params['role'].value}] [Server index: #{value}]"
@@ -160,8 +161,8 @@ module Scalr
           map {|role_info| role_info.id}
     end
 
-# given a count of a server within a role, resolve it to a fully-qualified
-# server ID (GUID)
+    # given a count of a server within a role, or a string with the start of a GUID,
+    # resolve it to a fully-qualified  server ID (GUID)
     def resolve_server_index(index, params, role_id = nil)
       response = self.class.new(:farm_get_details).dispatch(params)
       return nil unless response.success?
@@ -180,7 +181,12 @@ module Scalr
         servers = response.content.flat_map {|role_info| role_info.servers}
       end
 
-      matching = servers.find_all {|server| index.to_i == server.index}
+      if index.to_s.length > 4
+        matching = servers.find_all {|server| server.id.match(/^#{index.to_s}/)}
+      else
+        matching = servers.find_all {|server| index.to_i == server.index}
+      end
+
 
       # if too many, remove non-running ones
       if matching.length > 1
