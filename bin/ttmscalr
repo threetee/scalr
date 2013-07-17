@@ -11,6 +11,7 @@ require 'scalr'
 require 'scalr/ttm'
 require 'scalr/caller'
 require 'scalr/deployer'
+require 'scalr/poller'
 
 Scalr.read_access_info
 #Scalr.debug = $stderr
@@ -41,45 +42,6 @@ def logging_options(main)
     cast :int
     description 'Log entries to fetch'
   end
-end
-
-# this is kind of gross -- the response has a status, but it's really just
-# indicating "yeah I executed your script" -- instead, you have to look at the scripting
-# log for each of the servers you executed against and check the exit code...
-# AND
-# we have to do so in a loop, as 'async' doesn't mean what you think it means...
-def poll_for_script_logs(options)
-  expected_server_count = options[:servers] ? options[:servers].length : 0
-
-  script_time = options[:script_time]
-  script_name = options[:script]
-  script_log_options = {farm_id: options[:farm_id]}
-
-  max_polls = 5
-  count = 1
-
-  matching_logs = []
-
-  loop do
-    break if count > max_polls
-    break if expected_server_count != 0 && matching_logs.length == expected_server_count
-    break if expected_server_count == 0 && matching_logs.length > 0
-
-    print '.'
-    sleep(5)
-
-    log_response = invoke(:script_logs_list, script_log_options)
-    if generic_error(log_response)
-      raise 'Failed to fetch logs to display the scripting error. Check scalr website: https://my.scalr.com/#/logs/scripting'
-    end
-    matching_logs = log_response.content.find_all do |log_item|
-      log_item.after?(script_time) && log_item.script_matches(script_name)
-    end
-    count += 1
-  end
-
-  print "\n"
-  matching_logs
 end
 
 def dispatch(action_name, params)
@@ -245,8 +207,9 @@ Main {
 
       puts "Script executed... polling for logs from #{exec_role.servers_running.length} servers."
 
-      logs = poll_for_script_logs(farm_id: options[:farm_id], script: params['script'].value,
-                                  script_time: script_time, servers: exec_role.servers_running)
+      logs = Scalr::Poller.
+               new(options[:farm_id], exec_role.servers_running).
+               script_logs(params['script'].value, script_time)
 
       exec_ok = logs.find_all {|log_item| log_item.success?}
       unless exec_ok.empty?
