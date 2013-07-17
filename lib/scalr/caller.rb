@@ -99,6 +99,8 @@ module Scalr
         else
           roles.first
         end
+      elsif name == :script_id && ! value.nil?
+        resolve_script(value)
       elsif name == :server_id && ! value.nil?
         if match_info = value.match(/^(\w+)\.(\d+)$/) # heroku format
           role_name = match_info[1]
@@ -138,7 +140,7 @@ module Scalr
       Scalr.match_alias('farm', farm_alias)
     end
 
-# returns an array of farm role IDs
+    # returns an array of farm role IDs
     def resolve_farm_role(name, params, response = nil)
       role_names = []
       if Scalr.is_aliased_name?('role', name)
@@ -159,6 +161,18 @@ module Scalr
       response.content.
           find_all {|role_info| name == 'all' || role_names.include?(role_info.name.downcase)}.
           map {|role_info| role_info.id}
+    end
+
+    def resolve_script(name)
+      return name if name.strip.match(/^\d+$/)
+
+      response = self.class.new(:scripts_list).invoke()
+      return nil unless response.success?
+      script = response.content.find {|script| script.name.downcase == name.downcase}
+      unless script
+        raise "Failed to find a script with name '#{name}'"
+      end
+      script.id
     end
 
     # given a count of a server within a role, or a string with the start of a GUID,
