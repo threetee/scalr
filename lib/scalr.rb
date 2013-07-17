@@ -50,6 +50,11 @@ module Scalr
       name.nil? ? a : a[name.downcase] || []
     end
 
+    def first_alias(type, name)
+      a = aliases(type, name)
+      a.empty? ? nil : a.first
+    end
+
     def has_aliases?(*types)
       return false if @@aliases.nil? || @@aliases.empty?
       types.all? {|type| aliases(type).size > 0}
