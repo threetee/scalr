@@ -43,11 +43,50 @@ def logging_options(main)
   end
 end
 
+# this is kind of gross -- the response has a status, but it's really just
+# indicating "yeah I executed your script" -- instead, you have to look at the scripting
+# log for each of the servers you executed against and check the exit code...
+# AND
+# we have to do so in a loop, as 'async' doesn't mean what you think it means...
+def poll_for_script_logs(options)
+  expected_server_count = options[:servers] ? options[:servers].length : 0
+
+  script_time = options[:script_time]
+  script_name = options[:script]
+  script_log_options = {farm_id: options[:farm_id]}
+
+  max_polls = 5
+  count = 1
+
+  matching_logs = []
+
+  loop do
+    break if count > max_polls
+    break if expected_server_count != 0 && matching_logs.length == expected_server_count
+    break if expected_server_count == 0 && matching_logs.length > 0
+
+    print '.'
+    sleep(5)
+
+    log_response = invoke(:script_logs_list, script_log_options)
+    if generic_error(log_response)
+      raise 'Failed to fetch logs to display the scripting error. Check scalr website: https://my.scalr.com/#/logs/scripting'
+    end
+    matching_logs = log_response.content.find_all do |log_item|
+      log_item.after?(script_time) && log_item.script_matches(script_name)
+    end
+    count += 1
+  end
+
+  print "\n"
+  matching_logs
+end
+
 def dispatch(action_name, params)
   Scalr::Caller.new(action_name).dispatch(params)
 end
 
-def scalr_call(action_name, options = {})
+def invoke(action_name, options = {})
   Scalr::Caller.new(action_name).invoke(options)
 end
 
@@ -167,7 +206,65 @@ Main {
         end
       end
     end
+  end
 
+  mode 'maintenance' do
+    argument 'mode' do
+      description 'Either "on" or "off" to enable/disable maintenance mode'
+      validate {|mode| mode.match(/^(on|off)$/)}
+    end
+    option 'farm, -a' do
+      argument :required
+      description 'Farm we will put into maintenance mode'
+    end
+    option 'role, -r' do
+      argument :optional
+      description 'Specific role we will put into maintenance, defaults to "rails"'
+      default 'rails'
+    end
+    option 'script' do
+      argument :optional
+      description 'Script to execute, defaults to "TTMMaintenanceMode" (should not need to change)'
+      default 'TTMMaintenanceMode'
+    end
+
+    def run
+      options = Scalr::Caller.collect_options(params, [:farm_id, :farm_role_id, :script_id])
+
+      # fetch the role we'll execute in so we can count servers + resolve server IDs
+      role_response = invoke(:farm_get_details, farm_id: options[:farm_id])
+      exec_role = role_response.content.find {|role| role.id.to_s == options[:farm_role_id].to_s}
+      raise 'Cannot determine role script executes in - weird!' unless exec_role
+
+      options[:config_variables] = {on_or_off: params['mode'].value}
+      options[:async] = '0'
+
+      script_time = Time.now
+      response = invoke(:script_execute, options)
+      return if generic_error(response)
+
+      puts "Script executed... polling for logs from #{exec_role.servers_running.length} servers."
+
+      logs = poll_for_script_logs(farm_id: options[:farm_id], script: params['script'].value,
+                                  script_time: script_time, servers: exec_role.servers_running)
+
+      exec_ok = logs.find_all {|log_item| log_item.success?}
+      unless exec_ok.empty?
+        puts "OK - Maintenance: #{params['mode'].value} (#{exec_ok.length} of #{logs.length} servers)"
+      end
+      return if exec_ok.length == logs.length
+
+      role_name = params['role'].value # show what the user gave us...
+
+      exec_fail = logs.find_all {|log_item| log_item.failure?}
+      puts "FAIL (#{exec_fail.length} of #{logs.length} servers)."
+      exec_fail.each do |log_item|
+        server = exec_role.find_server(log_item.server_id)
+        server_display = server.nil? ? log_item.server_id : "#{role_name}.#{server.index}"
+        puts "#{server_display} => exit code: #{log_item.exit_code}"
+        puts log_item.message, "\n"
+      end
+    end
   end
 
   mode 'log:script' do
@@ -248,7 +345,7 @@ Main {
         raise "Must provide either 'farm' or 'role' to launch"
       end
 
-      response = scalr_call(action, options)
+      response = invoke(action, options)
       return if generic_error(response)
 
       if action == :farm_launch
@@ -303,8 +400,8 @@ Main {
     description 'List available applications and their sources'
 
     def run
-      application_response = scalr_call(:dm_applications_list)
-      source_response = scalr_call(:dm_sources_list)
+      application_response = invoke(:dm_applications_list)
+      source_response = invoke(:dm_sources_list)
       return if generic_error(application_response) || generic_error(source_response)
 
       sources = Scalr::ResponseObject::SourceItem.
@@ -369,7 +466,7 @@ Main {
     description 'List summary of all farms'
 
     def run
-      response = scalr_call(:farms_list)
+      response = invoke(:farms_list)
       return if generic_error(response)
       puts Scalr::ResponseObject::FarmSummary.show_items(response.content).join("\n")
     end
@@ -433,7 +530,7 @@ Main {
         raise 'Must provide at least one key=value pair'
       end
       pairs.each do |pair|
-        response = scalr_call(:global_variable_set, options.merge(param_name: pair.name, param_value: pair.value))
+        response = invoke(:global_variable_set, options.merge(param_name: pair.name, param_value: pair.value))
         if response.success?
           puts "OK #{pair.to_s}"
         else
