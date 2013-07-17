@@ -188,9 +188,12 @@ module Scalr
         nil
       end
 
-      # 'server_spec' could be an index (1), or role.index (rails.1)
+      # 'server_spec' could be an index (1), or role.index (rails.1), or server GUID
       # will return a ::Server object if matching or nil (if not found)
       def find_server(server_spec)
+        if server_spec.to_s.match(/^([\d\w]+\-){4}[\d\w]+$/)
+          return filter_by_running(->(server) {server_spec == server.id})
+        end
         index = -1
         if match_info = server_spec.match(/^(\w+)\.(\d+)$/)
           role_name = match_info[1]
@@ -200,8 +203,11 @@ module Scalr
         end
 
         return nil if index == -1
+        filter_by_running(->(server) {index == server.index})
+      end
 
-        matching = servers.find_all {|server| index == server.index}
+      def filter_by_running(filter)
+        matching = servers.find_all &filter
         if matching.length > 1
           matching = matching.find {|server| server.running?}
         end
@@ -218,6 +224,10 @@ module Scalr
             Platform:      #{platform_properties.to_s}
             Servers:       #{servers_display.empty? ? 'None' : "\n      " + servers_display.join("\n      ")}
           ROLEINFO
+      end
+
+      def servers_running
+        servers.find_all {|server| server.running?}
       end
 
       def show_scaling
@@ -389,14 +399,14 @@ module Scalr
       def self.build(data)
         obj = super(data)
         if obj
-          obj.exec_time = obj.exit_code.to_f if obj.exec_time
+          obj.exec_time = obj.exec_time.to_f if obj.exec_time
           obj.exit_code = obj.exit_code.to_i if obj.exit_code
           obj.timestamp = obj.parse_timestamp(obj.timestamp)
         end
         obj
       end
 
-      def self.show_items(log_items, expand_script = nil, quiet = false)
+      def self.show_items(log_items, expand_script = nil, quiet = true)
         pat = build_pattern(log_items, [:script_name, :exit_code, :exec_time, :event],
                             '%s - %-{script_name} - [Exit: %{exit_code}] [Exec time: %{exec_time}] [From event: %-{event}] [Server: %s]')
         log_items.map do |log_item|
@@ -411,7 +421,7 @@ module Scalr
       end
 
       def after?(time_to_check)
-        timestamp > time_to_check
+        timestamp >= time_to_check
       end
 
       def failure?
