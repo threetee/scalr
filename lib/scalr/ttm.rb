@@ -47,7 +47,7 @@ module Scalr
                 "15331": [ "Winters" ]
               },
               "role": {
-                "RailsAppServer" : ["web", "rails"],
+                "RailsAppServer" : ["rails", "web"],
                 "Sidekiq"        : ["sidekiq"],
                 "Bunchball"      : ["bunchball", "bb"],
                 "SystemWatcher"  : ["watcher"],
