@@ -95,14 +95,14 @@ module Scalr
           :outputs => { :path => 'logset@item', :object => Scalr::ResponseObject::DeploymentTaskLogItem}
       },
       :dm_deployment_task_get_status => {
-        :name => 'DmDeploymentTaskGetStatus', :version => V230,
-        :inputs => { :deployment_task_id => true },
-        :outputs => { :path => 'deploymenttaskstatus' } 
+          :name => 'DmDeploymentTaskGetStatus', :version => V230,
+          :inputs => { :deployment_task_id => true },
+          :outputs => { :path => 'deploymenttaskstatus' }
       },
       :dm_deployment_tasks_list => {
-        :name => 'DmDeploymentTasksList', :version => V230,
-        :inputs => { :application_id => false, :farm_role_id => false, :remote_path => false },
-        :outputs => { :path => 'deploymenttasksset@item', :object => Scalr::ResponseObject::DeploymentTaskItem }
+          :name => 'DmDeploymentTasksList', :version => V230,
+          :inputs => { :application_id => false, :farm_role_id => false, :remote_path => false },
+          :outputs => { :path => 'deploymenttasksset@item', :object => Scalr::ResponseObject::DeploymentTaskItem }
       },
       :dm_source_create => {
           :name => 'DmSourceCreate', :version => V230,
@@ -204,6 +204,7 @@ module Scalr
           :name => 'ScriptExecute', :version => V200,
           :inputs => {:farm_role_id => false, :server_id => false, :farm_id => true, :script_id => true,
                       :timeout => true, :async => true, :revision => false, :config_variables => false},
+          :defaults => {:timeout => '30', :async => '0', },
           :outputs => { :path => 'result' }
       },
       :script_get_details => {
@@ -212,9 +213,9 @@ module Scalr
           :outputs => { :path => 'scriptrevisionset@item', :object => Scalr::ResponseObject::Script }
       },
       :script_logs_list => {
-        :name => 'ScriptingLogsList', :version => V230,
-        :inputs => {:farm_id => true, :server_id => false, :start_from => false, :records_limit => false},
-        :outputs => { :path => 'logset@item', :object => Scalr::ResponseObject::ScriptLogItem }
+          :name => 'ScriptingLogsList', :version => V230,
+          :inputs => {:farm_id => true, :server_id => false, :start_from => false, :records_limit => false},
+          :outputs => { :path => 'logset@item', :object => Scalr::ResponseObject::ScriptLogItem }
       },
       :scripts_list => {
           :name => 'ScriptsList', :version => V200,
@@ -348,12 +349,25 @@ module Scalr
         @inputs = {}
         input_hash.each do |key, value|
           raise InvalidInputError.new("Unknown input: #{key.to_s}") if ACTIONS[action][:inputs][key].nil?
-          @inputs[INPUTS[key]] = value.to_s
+          @inputs[INPUTS[key]] = value # remove to_s from here because that serializes hashes weird, we do that in query_string
         end
       end
       
       def query_string
-        @inputs.sort.collect { |key, value| [URI.escape(key.to_s), URI.escape(value.to_s)].join('=') }.join('&')
+        elements = @inputs.sort.flat_map do |key, value|
+          if value.instance_of?(Hash)
+            value.map{|child_key, child_value| pair_for_uri("#{key.to_s}[#{child_key.to_s}]", child_value)}
+          elsif value.instance_of?(Array)
+            value.map {|child_value| pair_for_uri(key, child_value)}
+          else
+            pair_for_uri(key, value)
+          end
+        end
+        elements.join('&')
+      end
+
+      def pair_for_uri(key, value)
+        [URI.escape(key.to_s), URI.escape(value.to_s)].join('=')
       end
       
       def set_signature!
