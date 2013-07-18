@@ -1,6 +1,8 @@
 module Scalr
   class Caller
 
+    # TODO: cache responses for some actions? For example, we fetch farm details a number of times...
+
     # to save typing we map parameters to shorter names
     #   Scalr API name   => Our short name
     PARAM_ALIASES = {

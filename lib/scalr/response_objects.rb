@@ -128,6 +128,10 @@ module Scalr
         server_id.gsub(/^(\w+)\-.+$/, '\1')
       end
 
+      def to_s
+        "#{id}: #{status} [Server: #{server_id}]"
+      end
+
       # {:serverid=>"57f02c81-6020-408a-8125-eecffa838673", :deploymenttaskid=>"f81461e34ce3",
       #  :farmroleid=>"53494", :remotepath=>"/var/www", :status=>"pending"}
     end
@@ -309,6 +313,10 @@ module Scalr
         timestamp > time_to_check
       end
 
+      def brief
+        self.class.show_items([self])
+      end
+
       def matches_source(match_source)
         match_source && (match_source == 'all' || match_source == '*' || match_source == source || source.nil?)
       end
@@ -410,7 +418,7 @@ module Scalr
         pat = build_pattern(log_items, [:script_name, :exit_code, :exec_time, :event],
                             '%s - %-{script_name} - [Exit: %{exit_code}] [Exec time: %{exec_time}] [From event: %-{event}] [Server: %s]')
         log_items.map do |log_item|
-          next unless log_item.failure?
+          next unless ! quiet || log_item.failure?
           from_event = log_item.event || 'N/A'
           message = log_item.message.nil? ? '' : log_item.message.strip
           display_message = ! quiet && (log_item.failure? || log_item.script_matches(expand_script))
@@ -422,6 +430,10 @@ module Scalr
 
       def after?(time_to_check)
         timestamp >= time_to_check
+      end
+
+      def brief
+        self.class.show_items([self])
       end
 
       def failure?
@@ -441,7 +453,7 @@ module Scalr
       end
 
       def to_s
-        self.class.show_items([self])
+        self.class.show_items([self], nil, false)
       end
     end
 

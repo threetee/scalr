@@ -1,60 +1,47 @@
 # monitor a deployment for a particular role
+require 'scalr/server_deployment'
+require 'scalr/log_sink'
+
 module Scalr
   class DeploymentMonitor
 
-    attr_accessor :error, :role, :status, :tasks
+    attr_accessor :error, :role, :status
 
     def initialize(role, farm_id, verbose = false)
       @farm_id   = farm_id
       @role      = role
-      @last_seen = Time.now
+      @servers = @role.servers_running.map {|server| Scalr::ServerDeployment.new(@farm_id, role, server)}
       @status    = 'NOT EXECUTED'
-      @tasks     = []
       @verbose   = verbose
     end
 
-    def run(scalr_caller)
-      @last_seen = Time.now
-      @response = scalr_caller.invoke(farm_role_id: @role.id)
-      unless ! @response.nil? && @response.success?
+    def start(deployment_caller)
+      response = deployment_caller.invoke(farm_role_id: @role.id)
+      if response.nil? || response.failed?
         @status = 'FAILED'
-        @error = @response.nil? ? 'Input validation error' : @response.error
+        @error = response.nil? ? 'Input validation error' : response.error
         return
       end
-      @status = 'EXECUTED'
+      @status = 'STARTED'
+      assign_tasks(response.content)
+      show_servers if @verbose
+    end
 
-      assign_tasks(@response.content)
-      if @verbose
-        puts "ROLE: #{@role.name}"
-        puts Scalr::ResponseObject::DeploymentTaskItem.show_items(@response.content).join("\n")
+    def poll
+      unless done?
+        accumulate_logs
+        if refresh_status
+          puts "  #{name}: #{status} - #{servers_status.join(' ')}" if @verbose
+        end
       end
     end
 
-
-    def assign_tasks(tasks)
-      @tasks = tasks
-    end
-
-    def check_system_logs
-      scalr_logs_after_last_seen(:logs_list)
-    end
-
-    def check_script_logs
-      scalr_logs_after_last_seen(:script_logs_list)
-    end
-
-    def deployed?
-      @status == 'DEPLOYED'
-    end
-
-    # this monitor has finished, whether it's completed or failed
-    def done?
-      deployed? || failed?
-    end
-
-    def failed?
-      @status == 'FAILED'
-    end
+    def completed?; @status == 'completed' end
+    def deployed?;  @status == 'deployed'  end
+    def deploying?; @status == 'deploying' end
+    def done?;      @servers.all? &:done?  end # this monitor is done whenever all of its servers are done
+    def failed?;    @status == 'failed'    end
+    def pending?;   @status == 'pending'   end
 
     def full_status
       failed? ? "#{status}: #{error}" : status
@@ -64,76 +51,90 @@ module Scalr
       @role.name
     end
 
-    def poll
-      return if done?
-
-      system_logs = check_system_logs
-      script_logs = check_script_logs
-      has_logs = system_logs.size > 0 || script_logs.size > 0
-
-      if refresh_status
-        puts "  #{name}: #{status} - #{servers_status.join(' ')}" if @verbose
-      end
-
-      if has_logs
-        (@verbose || failed?) && puts(to_s)
-        show_logs(system_logs, script_logs)
-      end
-
-      print '.' unless has_logs || @verbose
-    end
-
     # status will change to one of DEPLOYED|DEPLOYING|FAILED|PENDING
     # iff all the tasks have the same status
-    # returns: true if status changed, false if not
+    # returns: true if any server status changed, false if none did
     def refresh_status
-      @tasks.each do |task|
-        @task_refresher ||= Scalr::Caller.new(:dm_deployment_task_get_status)
-        response = @task_refresher.invoke(deployment_task_id: task.id)
-        next unless response
-        task.status = response.content
-      end
-      previous_status = @status
-      @status = 'DEPLOYED'  if @tasks.all? {|task| task.deployed?}
-      @status = 'DEPLOYING' if @tasks.all? {|task| task.deploying?}
-      @status = 'FAILED'    if @tasks.all? {|task| task.failed?}
-      @status = 'PENDING'   if @tasks.all? {|task| task.pending?}
-      previous_status == @status
+      changed = @servers.any? &:refresh
+      @status = 'completed' if @servers.all? {|server_deploy| server_deploy.completed?}
+      @status = 'deployed'  if @servers.all? {|server_deploy| server_deploy.deployed?}
+      @status = 'deploying' if @servers.all? {|server_deploy| server_deploy.deploying?}
+      @status = 'failed'    if @servers.all? {|server_deploy| server_deploy.failed?}
+      @status = 'pending'   if @servers.all? {|server_deploy| server_deploy.pending?}
+      changed
+    end
+
+    def servers_not_done
+      @servers.find_all {|server_deploy| !server_deploy.done?}
     end
 
     def servers_status
-      @tasks.map {|task| "[Server: #{task.server_short}: #{task.status}]"}
+      @servers.map &:to_s
     end
 
-    def show_logs(system_logs, script_logs)
-      (system_logs + script_logs).each {|log| puts log.to_s}
+    def show_servers
+      puts "ROLE: #{@role.name}"
+      puts servers_status.join("\n")
     end
 
-    def summary_server_status
-      tasks.
-          group_by{|task| task.status}.
-          map{|status, tasks| "#{status}: #{tasks.length}"}
+    def summaries
+      @servers.map do |server_deploy|
+        server_failures = server_deploy.failures
+        if server_failures.empty?
+          server_status = server_deploy.done? ? 'OK' : server_deploy.status.upcase
+          "#{server_status}: #{server_deploy.name}"
+        else
+          "FAIL: #{server_deploy.name} - #{server_failures.length}\n" +
+              server_failures.map {|log_item|
+                "** Script: #{log_item.script_name}; Exit: #{log_item.exit_code}; Exec time: #{log_item.exec_time} sec\n" +
+                log_item.message
+              }.join("\n")
+        end
+      end
+    end
+
+    def summarize_server_status
+      @servers.
+          group_by {|s| s.status}.
+          map {|status, server_deploys| "#{status}: #{server_deploys.length}"}
     end
 
     def to_s
-      "Role #{role.name} - #{full_status} (tasks: #{tasks.empty? ? 'none' : tasks.map{|task| task.id}.join('; ')})"
+      "Role #{role.name} - #{full_status}"
     end
 
   private
 
-    def scalr_logs_after_last_seen(action_name)
-      log_caller = Scalr::Caller.new(action_name)
-      logs = @tasks.flat_map do |task|
-        response = log_caller.invoke(farm_id: @farm_id, server_id: task.server_id)
-        if response && response.success?
-          response.content.find_all {|log_item| log_item.after?(@last_seen)}
-        else
-          []
-        end
-      end
-      @last_seen = Time.now
-      logs.compact
+    def accumulate_logs
+      @servers.each {|server_deploy| server_deploy.scan_logs}
     end
 
+    def assign_tasks(tasks)
+      tasks.each do |task|
+        server_deploy = deployment_for_server(task.server_id)
+        unless server_deploy
+          puts "WEIRD! Scalr generated a task for which we didn't have a server entry! Task: #{task.to_s}"
+          server_deploy = Scalr::ServerDeployment.new(@farm_id, @role, @role.find_server(task.server_id))
+          @servers << server_deploy
+        end
+        server_deploy.assign_task(task)
+      end
+      @servers.find_all {|server_deploy| server_deploy.missing_task?}.each do |server_deploy|
+        puts "WEIRD! No Scalr task for running server: #{server_deploy.id}"
+        @servers.delete(server_deploy)
+      end
+    end
+
+    def deployment_for_server(server_id)
+      @servers.find {|server| server_id == server.id}
+    end
+
+    def log_sinks
+      @log_sinks ||= Scalr::LogSinks.new(@servers.map &:log_sink)
+    end
+
+    def poller
+      @poller ||= Scalr::StatefulScriptPoller.new(@farm_id, @role.servers_running, 'TTMAppConfigAndLaunch')
+    end
   end
 end

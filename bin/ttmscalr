@@ -76,7 +76,7 @@ Main {
     end
     option 'path' do
       argument :optional
-      description 'Path to which the application will be deployed (rarely needed)'
+      description 'Path to which the application will be deployed (rarely changes)'
     end
     option 'verbose' do
       description 'false (default): display information only when all tasks done; true: display data as we poll'
