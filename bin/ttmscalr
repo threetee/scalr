@@ -95,6 +95,66 @@ Main {
     end
   end
 
+  mode 'deploy:migrate' do
+    description 'Run db:migrate on the given farm'
+
+    argument 'farm' do
+      description 'Farm to run db:migrate on'
+    end
+    option 'role, -r' do
+      argument :optional
+      description 'Specific role we will run migration on, defaults to "watcher"'
+      default 'watcher'
+    end
+    option 'script' do
+      argument :optional
+      description 'Script to execute, defaults to "TTMScheduledJobsMaster" (should not need to change)'
+      default 'TTMScheduledJobsMaster'
+    end
+    option 'timeout' do
+      argument :optional
+      description 'Override the timeout, defaults to 1200 seconds'
+      default '1200'
+    end
+
+    def run
+      options = Scalr::Caller.collect_options(params, [:farm_id, :farm_role_id, :script_id, :timeout])
+
+      role_response = invoke(:farm_get_details, farm_id: options[:farm_id])
+      exec_role = role_response.content.find {|role| role.id.to_s == options[:farm_role_id].to_s}
+      raise 'Cannot determine role script executes in - weird!' unless exec_role
+
+      options[:config_variables] = {my_task: 'db_migrate'}
+
+      script_time = Time.now
+
+      puts "Executing script with options: #{options.inspect}"
+      response = invoke(:script_execute, options)
+      return if generic_error(response)
+
+      puts 'Script executed; polling for logs...'
+
+      logs = Scalr::Poller.
+          new(options[:farm_id], exec_role.servers_running).
+          script_logs(params['script'].value, script_time, 50)
+
+      exec_ok = logs.find_all {|log_item| log_item.success?}
+      unless exec_ok.empty?
+        puts 'OK - Migration complete.'
+      end
+      return if exec_ok.length == logs.length
+
+      exec_fail = logs.find_all {|log_item| log_item.failure?}
+      puts "FAIL (#{exec_fail.length} of #{logs.length} servers)."
+      exec_fail.each do |log_item|
+        server = exec_role.find_server(log_item.server_id)
+        server_display = server.nil? ? log_item.server_id : "#{role_name}.#{server.index}"
+        puts "#{server_display} => exit code: #{log_item.exit_code}"
+        puts log_item.message, "\n"
+      end
+    end
+  end
+
   mode 'deploy:monitor' do
     description 'Monitor a deployment in process (not done yet!)'
 
@@ -212,7 +272,6 @@ Main {
       raise 'Cannot determine role script executes in - weird!' unless exec_role
 
       options[:config_variables] = {on_or_off: params['mode'].value}
-      options[:async] = '0'
 
       script_time = Time.now
       response = invoke(:script_execute, options)
