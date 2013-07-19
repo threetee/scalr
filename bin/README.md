@@ -2,7 +2,7 @@
 
 ## Configuring
 
-You need to tell Scalr your API credentials.(Don't have these? Go get
+You need to tell Scalr your API credentials. Don't have these? Go get
 them -- Andre can create an account for you, and once you login click on
 your profile in the upper-right and choose 'API Access'.
 
@@ -17,7 +17,7 @@ defined:
 __2.__ Create one of the following files with access credentials:
 
 * `access_info` in the directory where the Scalr gem is stored
-* `~/.ttm_scalr_access_info`
+* `~/.ttm_scalr_access_info` <<< preferred!
 * `access_info` in the current directory
 
 (More specific files will be preferred over least specific.)
@@ -262,5 +262,3 @@ or just those matching a substring:
 * Tasks should have a timestamp (dm_deployment_tasks_list)
 * I should be able to fetch logs not only by a pagination offset,
   but also before/after a timestamp
-
-
