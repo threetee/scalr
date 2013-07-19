@@ -25,7 +25,7 @@ def check(args)
     puts "#{show_name_and_version(ruby_name, config)}: FAILURE"   
     puts issues.join("\n") unless issues.empty?
     puts show_inputs(config).join("\n")
-    puts ""
+    print "\n"
   end
   puts "EVERYTHING OK!!!!!"  if failures == 0
 end
