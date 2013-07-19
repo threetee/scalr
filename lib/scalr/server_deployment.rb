@@ -42,7 +42,7 @@ module Scalr
 
     # TODO: take the raw failures and categorize them into an object
     def failures
-      @log_sink.failures
+      @log_sink.failures.map{|failure| Scalr::ServerFailure.new(@server, failure)}
     end
 
     def id

@@ -63,19 +63,20 @@ module Scalr
       end
 
       unless @monitors.all? {|monitor| monitor.done?}
-        puts "\nTIME OUT.\nSpent #{MAX_POLL_COUNT * POLL_SLEEP_SECONDS} seconds waiting\n" +
-             "for the deployment to finish. I can't wait any longer!"
+        puts "\nTIME OUT.\nSpent #{MAX_POLL_COUNT * POLL_SLEEP_SECONDS} seconds waiting for the deployment\n" +
+             "to finish. I can't wait any longer!"
         show_complete
       end
     end
 
     def show_complete
       all_ok = @monitors.all? {|monitor| monitor.completed?}
-      puts "\nCOMPLETE: #{all_ok ? 'All OK - AWESOME' : 'SOME FAILED'}."
+      puts "\nCOMPLETE: #{all_ok ? 'All OK - AWESOME' : 'SOME FAILED'}.\n"
       unless all_ok
         @monitors.each do |monitor|
-          puts "#{monitor.name}: #{monitor.summarize_server_status.join('; ')}"
-          puts monitor.summaries.join("\n")
+          puts '========================================',
+               "#{monitor.name}: #{monitor.summarize_server_status.join('; ')}",
+               monitor.summaries.join("\n")
         end
       end
     end

@@ -52,4 +52,30 @@ module Scalr
       @logs.find_all {|log| log.instance_of? clazz}
     end
   end
+
+  require 'delegate'
+
+  class ServerFailure < ::SimpleDelegator
+
+    Dir[File.join(File.dirname(__FILE__), 'failure', '*.rb')].each {|file| require file}
+
+    attr_reader :server, :types
+
+    PATTERNS = [
+        Scalr::Failure::S3Authentication.new
+    ]
+
+    def initialize(server, log_item)
+      super(log_item)
+      @server = server
+      @types = categorize(log_item)
+    end
+
+    def categorize(log_item)
+      matches = PATTERNS.find_all {|pattern| pattern.matches?(log_item)}
+      matches.empty? ? [Scalr::Failure::Generic.new] : matches
+    end
+  end
+
+
 end

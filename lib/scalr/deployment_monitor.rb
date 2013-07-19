@@ -84,10 +84,10 @@ module Scalr
           server_status = server_deploy.done? ? 'OK' : server_deploy.status.upcase
           "#{server_status}: #{server_deploy.name}"
         else
-          "FAIL: #{server_deploy.name} - #{server_failures.length}\n" +
-              server_failures.map {|log_item|
-                "** Script: #{log_item.script_name}; Exit: #{log_item.exit_code}; Exec time: #{log_item.exec_time} sec\n" +
-                log_item.message
+          "FAIL: #{server_deploy.name}\n" +
+              server_failures.map {|failure|
+                "** Script: #{failure.script_name}; Exit: #{failure.exit_code}; Exec time: #{failure.exec_time} sec\n" +
+                failure.types.map{|failure_type| failure_type.name + "\n" + failure_type.description}.join("\n")
               }.join("\n")
         end
       end
