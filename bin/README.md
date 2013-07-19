@@ -2,8 +2,11 @@
 
 ## Configuring
 
-You need to tell Scalr your API credentials. (Don't have these? Go get
-them!) You can do so in one of two ways:
+You need to tell Scalr your API credentials.(Don't have these? Go get
+them -- Andre can create an account for you, and once you login click on
+your profile in the upper-right and choose 'API Access'.
+
+You can tell Scalr your credentials in one of two ways:
 
 __1.__ Export data to your environment. Both of the following must be
 defined:
@@ -26,102 +29,6 @@ The Scalr access credentials should be in the file like this:
 
 DO NOT ADD THIS FILE TO git! It's already in `.gitignore` so you
 shouldn't be able to do so accidentally in the scalr gem.
-
-## Heroku commands
-
-We'd like to be able to replicate everything we actually used with
-heroku. Here's a list of all its commands:
-
-    cwinters@abita:~/Projects/TTM/apangea$ heroku --help
-    Usage: heroku COMMAND [--app APP] [command-specific-options]
-
-    Primary help topics, type "heroku help TOPIC" for more details:
-
-      addons    #  manage addon resources
-      apps      #  manage apps (create, destroy)
-      auth      #  authentication (login, logout)
-      config    #  manage app config vars
-      domains   #  manage custom domains
-      logs      #  display logs for an app
-      ps        #  manage processes (dynos, workers)
-      releases  #  manage app releases
-      run       #  run one-off commands (console, rake)
-      sharing   #  manage collaborators on an app
-
-    Additional topics:
-
-      account      #  manage heroku account options
-      certs        #  manage ssl endpoints for an app
-      db           #  manage the database for an app
-      drains       #  display syslog drains for an app
-      fork         #  clone an existing app
-      git          #  manage git for apps
-      help         #  list commands and display help
-      keys         #  manage authentication keys
-      labs         #  manage optional features
-      maintenance  #  manage maintenance mode for an app
-      pg           #  manage heroku-postgresql databases
-      pgbackups    #  manage backups of heroku postgresql databases
-      plugins      #  manage plugins to the heroku gem
-      stack        #  manage the stack for an app
-      status       #  check status of heroku platform
-      update       #  update the heroku client
-      version      #  display version
-
-Of these we'll probably implement things in this order:
-
-__config__
-
-    cwinters@abita:~/Projects/TTM/apangea$ heroku config --help
-    Usage: heroku config
-
-     display the config vars for an app
-
-     -s, --shell  # output config vars in shell format
-
-    Examples:
-
-     $ heroku config
-     A: one
-     B: two
-
-     $ heroku config --shell
-     A=one
-     B=two
-
-    Additional commands, type "heroku help COMMAND" for more details:
-
-      config:get KEY                            #  display a config value for an app
-      config:set KEY1=VALUE1 [KEY2=VALUE2 ...]  #  set one or more config vars
-      config:unset KEY1 [KEY2 ...]              #  unset one or more config vars
-
-__ps__
-
-    cwinters@abita:~/Projects/TTM/apangea$ heroku ps --help
-    Usage: heroku ps
-
-     list processes for an app
-
-    Example:
-
-     $ heroku ps
-     === run: one-off processes
-     run.1: up for 5m: `bash`
-
-     === web: `bundle exec thin start -p $PORT`
-     web.1: created for 30s
-
-    Additional commands, type "heroku help COMMAND" for more details:
-
-      ps:restart [PROCESS]                              #  restart an app process
-      ps:scale PROCESS1=AMOUNT1 [PROCESS2=AMOUNT2 ...]  #  scale processes by the given amount
-      ps:stop PROCESS                                   #  stop an app process
-
-
-Plus some additional functionality:
-
-* deploy
-* psql (like pg:psql? just output shell command for it?)
 
 ## Scalr commands
 
@@ -226,6 +133,102 @@ Tasks to accomplish:
 
 ### psql
 
+## Heroku commands
+
+We'd like to be able to replicate everything we actually used with
+heroku. Here's a list of all its commands:
+
+    cwinters@abita:~/Projects/TTM/apangea$ heroku --help
+    Usage: heroku COMMAND [--app APP] [command-specific-options]
+
+    Primary help topics, type "heroku help TOPIC" for more details:
+
+      addons    #  manage addon resources
+      apps      #  manage apps (create, destroy)
+      auth      #  authentication (login, logout)
+      config    #  manage app config vars
+      domains   #  manage custom domains
+      logs      #  display logs for an app
+      ps        #  manage processes (dynos, workers)
+      releases  #  manage app releases
+      run       #  run one-off commands (console, rake)
+      sharing   #  manage collaborators on an app
+
+    Additional topics:
+
+      account      #  manage heroku account options
+      certs        #  manage ssl endpoints for an app
+      db           #  manage the database for an app
+      drains       #  display syslog drains for an app
+      fork         #  clone an existing app
+      git          #  manage git for apps
+      help         #  list commands and display help
+      keys         #  manage authentication keys
+      labs         #  manage optional features
+      maintenance  #  manage maintenance mode for an app
+      pg           #  manage heroku-postgresql databases
+      pgbackups    #  manage backups of heroku postgresql databases
+      plugins      #  manage plugins to the heroku gem
+      stack        #  manage the stack for an app
+      status       #  check status of heroku platform
+      update       #  update the heroku client
+      version      #  display version
+
+Of these we'll probably implement things in this order:
+
+__config__
+
+    cwinters@abita:~/Projects/TTM/apangea$ heroku config --help
+    Usage: heroku config
+
+     display the config vars for an app
+
+     -s, --shell  # output config vars in shell format
+
+    Examples:
+
+     $ heroku config
+     A: one
+     B: two
+
+     $ heroku config --shell
+     A=one
+     B=two
+
+    Additional commands, type "heroku help COMMAND" for more details:
+
+      config:get KEY                            #  display a config value for an app
+      config:set KEY1=VALUE1 [KEY2=VALUE2 ...]  #  set one or more config vars
+      config:unset KEY1 [KEY2 ...]              #  unset one or more config vars
+
+__ps__
+
+    cwinters@abita:~/Projects/TTM/apangea$ heroku ps --help
+    Usage: heroku ps
+
+     list processes for an app
+
+    Example:
+
+     $ heroku ps
+     === run: one-off processes
+     run.1: up for 5m: `bash`
+
+     === web: `bundle exec thin start -p $PORT`
+     web.1: created for 30s
+
+    Additional commands, type "heroku help COMMAND" for more details:
+
+      ps:restart [PROCESS]                              #  restart an app process
+      ps:scale PROCESS1=AMOUNT1 [PROCESS2=AMOUNT2 ...]  #  scale processes by the given amount
+      ps:stop PROCESS                                   #  stop an app process
+
+
+Plus some additional functionality:
+
+* deploy
+* psql (like pg:psql? just output shell command for it?)
+
 ## Also: api_check
 
 You can check the Scalr API configuration with:
@@ -257,6 +260,7 @@ or just those matching a substring:
 # Scalr API ideas
 
 * Tasks should have a timestamp (dm_deployment_tasks_list)
-* I should be able to fetch logs not only by a pagination offset, but also before/after a timestamp
+* I should be able to fetch logs not only by a pagination offset,
+  but also before/after a timestamp
 
 
