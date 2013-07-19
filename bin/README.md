@@ -52,7 +52,75 @@ See more about them below.
 
 You can get details about a farm:
 
+    $ ttmscalr farm -a review
+    FARM: 15275 (aliases: review, ttm-review, ttm-staging)
+    ========================================
+    ROLE: RailsAppServer (our aliases: web, rails)
+      Farm role ID:  53302
+      Scaling:       YES [Range: 1-1]
+      Platform:      Instance: m1.large; Availability: us-east-1a
+      Servers:
+           web.1 - Running - Uptime 81.92 - Instance: m1.large; Availability: us-east-1a
 
+    ROLE: Sidekiq (our aliases: sidekiq)
+      Farm role ID:  53303
+      Scaling:       YES [Range: 1-1]
+      Platform:      Instance: m1.large; Availability: us-east-1a
+      Servers:
+           sidekiq.1 - Running - Uptime 77.27 - Instance: m1.large; Availability: us-east-1a
+
+    ROLE: Bunchball (our aliases: bunchball, bb)
+      Farm role ID:  53304
+      Scaling:       YES [Range: 1-1]
+      Platform:      Instance: m1.large; Availability: us-east-1a
+      Servers:
+           bunchball.1 - Running - Uptime 89.3 - Instance: m1.large; Availability: us-east-1a
+
+    ROLE: Reports (our aliases: reports)
+      Farm role ID:  53305
+      Scaling:       YES [Range: 1-1]
+      Platform:      Instance: m1.large; Availability: us-east-1a
+      Servers:
+           reports.1 - Running - Uptime 83.07 - Instance: m1.large; Availability: us-east-1a
+
+    ROLE: DevDebug (our aliases: debug)
+      Farm role ID:  53306
+      Scaling:       YES [Range: 1-1]
+      Platform:      Instance: m1.large; Availability: us-east-1a
+      Servers:
+           debug.1 - Running - Uptime 2666.4 - Instance: m1.large; Availability: us-east-1a
+
+    ROLE: SystemWatcher (our aliases: watcher)
+      Farm role ID:  53307
+      Scaling:       YES [Range: 1-1]
+      Platform:      Instance: m1.large; Availability: us-east-1a
+      Servers:
+           watcher.1 - Running - Uptime 83.02 - Instance: m1.large; Availability: us-east-1a
+
+    ROLE: PGSQL-9-2 (our aliases: N/A)
+      Farm role ID:  53308
+      Scaling:       YES [Range: 2-2]
+      Platform:      Instance: m3.2xlarge; Availability: us-east-1a
+      Servers:
+           #1 - Running      - Uptime 80.42 - Instance: m3.2xlarge; Availability: us-east-1a
+           #2 - Terminated   - Uptime 26.18 - Instance: m3.2xlarge; Availability: us-east-1a
+           #2 - Terminated   - Uptime 40.03 - Instance: m3.2xlarge; Availability: us-east-1a
+           #2 - Initializing - Uptime  6.17 - Instance: m3.2xlarge; Availability: us-east-1a
+
+To see what's going on with one of the servers you can SSH directly in. Run
+a command to do so and the tool will tell you how to get the private key:
+
+    $ ttmscalr ssh debug.1 -a review
+
+    Expected key file (/home/cwinters/.ssh/FARM-15275.us-east-1.private.pem) does not exist.
+    Here's how to fix it:
+      - go to https://my.scalr.com/#/sshkeys/view
+      - find the row with the 'Farm ID' column as 15275
+      - click the 'Actions' dropdown in its far right column
+      - choose 'Download private key'
+      - store it to /home/cwinters/.ssh/FARM-15275.us-east-1.private.pem
+      - execute: 'chmod 400 /home/cwinters/.ssh/FARM-15275.us-east-1.private.pem'
+        (so ssh won't complain about permissive permissions)
 
 ## Scalr commands: overview
 
