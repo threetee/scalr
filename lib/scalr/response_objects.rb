@@ -53,7 +53,14 @@ module Scalr
       end
 
       def self.scan_lengths(items, keys)
-        Hash[ keys.map {|key| [key, items.map {|item| item[key].nil? ? 0 : item_length(item[key]) }.max ]} ]
+        pairs = keys.map do |key|
+          max_length = items.map {|item|
+            value = item.send(key.to_sym)
+            value.nil? ? 0 : item_length(value)
+          }.max
+          [key, max_length]
+        end
+        Hash[pairs]
       end
 
       def initialize(*args)
@@ -274,8 +281,8 @@ module Scalr
       end
 
       def self.show_items(farms)
-        pat = build_pattern(farms, [:id, :name, :status],
-                            '%{id} - %-{name} - %-{status} - aliases: %s')
+        pat = build_pattern(farms, [:id, :name, :status_formatted],
+                            '%{id} - %-{name} - %-{status_formatted} - aliases: %s')
         farms.map do |farm|
           aliases = Scalr.aliases('farm', farm.id.to_s)
           sprintf(pat, farm.id, farm.name, farm.status_formatted, aliases.empty? ? 'N/A' : aliases.join(', '))
