@@ -14,20 +14,14 @@ module Scalr
       def self.build(data)
         return nil unless data
 
-        #puts "Building #{self.name} from #{data.inspect}"
-
         params = {}
         self.components.each do |k, info|
           component_data = data.nil? || data[k].nil? ? {} : data[k]
-          #puts "Generating component: [Old: #{k}] [New: #{info.inspect}] [With data: #{component_data.inspect}]"
           params[info[:name]] = info[:clazz].build(component_data)
-          #puts "   ...assigned value: [Data: #{params[info[:name]]}]"
         end
 
         self.fields.each do |k,v|
           next if params[v] # don't overwrite components
-          #puts "Generating pair: [Old: #{k}] [New: #{v}]"
-          #puts "   ...assigned value: [Data: #{data[k]}]"
           params[v] = data.nil? ? nil : data[k]
         end
 
