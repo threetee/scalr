@@ -52,7 +52,7 @@ module Scalr
 
     def first_alias(type, name)
       a = aliases(type, name)
-      a.empty? ? name : a.first
+      a.empty? ? nil : a.first
     end
 
     def has_aliases?(*types)

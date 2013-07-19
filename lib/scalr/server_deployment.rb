@@ -8,7 +8,8 @@ module Scalr
     attr_reader :log_sink, :name, :status
 
     def initialize(farm_id, role, server)
-      @name = "#{Scalr.first_alias('role', role.name)}.#{server.index}"
+      role_alias = Scalr.first_alias('role', role.name) || role.name
+      @name = "#{role_alias}.#{server.index}"
       @farm_id = farm_id
       @server = server
       @status = 'NOT EXECUTED'

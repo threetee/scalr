@@ -17,7 +17,7 @@ defined:
 __2.__ Create one of the following files with access credentials:
 
 * `access_info` in the directory where the Scalr gem is stored
-* `~/.ttm_scalr_access_info` <<< preferred!
+* `~/.ttm_scalr_access_info` __<<< preferred!__
 * `access_info` in the current directory
 
 (More specific files will be preferred over least specific.)
@@ -30,9 +30,76 @@ The Scalr access credentials should be in the file like this:
 DO NOT ADD THIS FILE TO git! It's already in `.gitignore` so you
 shouldn't be able to do so accidentally in the scalr gem.
 
-## Scalr commands
+## Quick intro
 
-### Scalr background
+Once you've installed test it out by listing some resources:
+
+    $ ttmscalr farm:list
+    You do not currently have a file for scalr aliases.
+    Creating one for you now in /home/cwinters/.ttm_scalr_aliases.json...
+    DONE - file written. Let's go!
+    14498 - Production           - RUNNING - aliases: production, ttm-production
+    15275 - Review               - RUNNING - aliases: review, ttm-review, ttm-staging
+    15356 - Production-DB-Master - RUNNING - aliases: prod-db-primary, master
+    15357 - Production-DB-Shard1 - RUNNING - aliases: prod-db-shard1, shard1
+    15358 - Production-DB-Shard2 - RUNNING - aliases: prod-db-shard2, shard2
+    15359 - Production-DB-Shard3 - RUNNING - aliases: prod-db-shard3, shard3
+    15360 - Production-DB-Shard4 - RUNNING - aliases: prod-db-shard4, shard4
+    15548 - DW-Production        - TERMINATED - aliases: N/A
+
+The message about missing aliases always happens with the first command you run.
+See more about them below.
+
+You can get details about a farm:
+
+
+
+## Scalr commands: overview
+
+### Getting help
+
+You can ask for help on any command:
+
+    $ ttmscalr command --help
+
+For example:
+
+    $ ttmscalr ssh --help
+    NAME
+      ttmscalr
+
+    SYNOPSIS
+      ttmscalr ssh server [options]+
+
+    DESCRIPTION
+      Generate SSH command to connect to a specific server within a farm and role.
+
+    PARAMETERS
+      server (1 -> server)
+          Server index to use with role, or "role.index" name (e.g., "rails.2")
+      --farm=farm, -a (0 ~> farm)
+          Farm containing role + server
+      --role=[role], -r (0 ~> role)
+          Role with server, required unless using role name with "server" arg
+      --help, -h
+
+    EXAMPLES
+      ttmscalr ssh rails.1 -a review
+      ttmscalr ssh sidekiq.2 -a production
+      ttmscalr ssh 12 -a production -r rails
+
+The parameter description tells you (in a slightly obscure manner) whether it's
+required or not.
+
+### Aliasing Scalr resources
+
+Many parameters you specify are identified by numeric ID in Scalr. But that's
+not friendly to us humans so we alias them for you. And you can control these
+aliases -- the first time you run a command with ttmscalr we'll generate a JSON
+file with default aliases, but you can change this and alias the 'Review' farm
+to 'Zoidberg' if you want.
+
+## Scalr background
 
 There are some fundamental differences between Scalr and
 Heroku. Heroku has a simple, flat model of
@@ -79,14 +146,14 @@ __Server__ levels and due to some scripting from our end are available
 as environment variables similar to Heroku. Though unlike Heroku they
 must begin with the `TTM_` prefix to be propagated.
 
+## Parking lot + ideas
 
-### Usability ideas
+### Usability
 
 * Be able to use farm name vs ID
 * Be able to use 'internal mapping' of farm name vs scalr (e.g.,
   'ttm-production' vs 'Prod-AppServer', 'ttm-staging' or 'ttm-review'
   vs 'Review', etc.)
-
 
 ### config
 
@@ -132,6 +199,8 @@ Tasks to accomplish:
 * stop specific farm (unload data?)
 
 ### psql
+
+### ssh
 
 ## Heroku commands
 

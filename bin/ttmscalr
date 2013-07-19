@@ -16,6 +16,10 @@ require 'scalr/poller'
 Scalr.read_access_info
 #Scalr.debug = $stderr
 
+def script_name
+  File.basename($0)
+end
+
 def generic_error(response)
   return true unless response
   return false if response.success?
@@ -67,19 +71,21 @@ Main {
   mode 'deploy' do
     description 'Deploy an application to all roles within a farm.'
 
+    examples "$ #{script_name} deploy production -a production"
+
     argument 'application' do
       description 'Application ID/alias to deploy. (Use "application:list" to list.)'
     end
     option 'farm, -a' do
-      argument :optional
-      description 'Farm to use when resolving role (if aliased)'
+      argument :required
+      description 'Farm we will deploy to'
     end
     option 'path' do
       argument :optional
       description 'Path to which the application will be deployed (rarely changes)'
     end
     option 'verbose' do
-      description 'false (default): display information only when all tasks done; true: display data as we poll'
+      description 'false (default): display number of servers remaining with every poll; true: display data as we poll'
     end
 
     def run
@@ -90,11 +96,13 @@ Main {
   end
 
   mode 'deploy:monitor' do
+    description 'Monitor a deployment in process (not done yet!)'
+
     argument 'application' do
       description 'Application ID/alias to deploy. (Use "application:list" to list.)'
     end
     option 'farm, -a' do
-      argument :optional
+      argument :required
       description 'Farm to use when resolving role (if aliased)'
     end
     option 'task' do
@@ -539,6 +547,14 @@ Main {
   mode 'ssh' do
     description 'Generate SSH command to connect to a specific server within a farm and role.'
 
+    examples "#{script_name} ssh rails.1 -a review",
+             "#{script_name} ssh sidekiq.2 -a production",
+             "#{script_name} ssh 12 -a production -r rails"
+
+    argument 'server' do
+      description 'Server index to use with role, or "role.index" name (e.g., "rails.2")'
+    end
+
     option 'farm, -a' do
       argument :required
       description 'Farm containing role + server'
@@ -547,10 +563,6 @@ Main {
     option 'role, -r' do
       argument :optional
       description 'Role with server, required unless using role name with "server" arg'
-    end
-
-    argument 'server' do
-      description 'Server index to use with role, or "role.index" name (e.g., "rails.2")'
     end
 
     def run

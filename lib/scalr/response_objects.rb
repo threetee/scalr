@@ -220,7 +220,8 @@ module Scalr
       end
 
       def for_display
-        servers_display = servers.empty? ? ['None'] : Scalr::ResponseObject::Server.show_items(servers)
+        my_alias = Scalr.first_alias('role', name)
+        servers_display = servers.empty? ? ['None'] : Scalr::ResponseObject::Server.show_items(servers, my_alias)
         aliases = Scalr.aliases('role', name)
         <<-ROLEINFO.gsub(/^ {10}/, '')
           ROLE: #{name} (our aliases: #{aliases.empty? ? 'N/A' : aliases.join(', ')})
@@ -476,12 +477,15 @@ module Scalr
         obj
       end
 
-      def self.show_items(servers)
+      def self.show_items(servers, role_name = nil)
+        index_width = role_name.nil? ? 3 : role_name.length + 3
         pat = build_pattern(servers, [:index, :status, :uptime, :id],
-                            '#%-{index}. %{status} - Uptime %{uptime} - %{id} - %s')
-        servers.
-            sort_by {|info| info.index}.
-            map {|server| sprintf(pat, server.index, server.status, server.uptime, server.id, server.platform_properties.to_s)}
+                            "%#{index_width}s - %-{status} - Uptime %{uptime} - %s")
+        sorted = servers.sort_by {|info| info.index}
+        sorted.map do |server|
+          server_name = role_name.nil? ? "##{server.index}" : "#{role_name}.#{server.index}"
+          sprintf(pat, server_name, server.status, server.uptime, server.platform_properties.to_s)
+        end
       end
 
       def running?
