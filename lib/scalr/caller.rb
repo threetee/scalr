@@ -92,8 +92,14 @@ module Scalr
 
 # allow transformations/lookups of data from the user
     def transform_value(name, value, params)
-      if name == :farm_id && ! value.nil?
-        resolve_farm(value)
+      if name == :farm_id
+        # if the application is given and the farm is not, see if the
+        # application can be resolved to a farm
+        if value.nil? && application_name = first_value_for(params, 'application')
+          Scalr.match_alias('farm', application_name)
+        elsif ! value.nil?
+          resolve_farm(value)
+        end
       elsif name == :farm_role_id && option_by_name(params, 'farm') && ! value.nil?
         roles = resolve_farm_role(value, params)
         if roles.empty?
