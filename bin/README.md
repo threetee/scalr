@@ -165,7 +165,62 @@ Many parameters you specify are identified by numeric ID in Scalr. But that's
 not friendly to us humans so we alias them for you. And you can control these
 aliases -- the first time you run a command with ttmscalr we'll generate a JSON
 file with default aliases, but you can change this and alias the 'Review' farm
-to 'Zoidberg' if you want.
+to 'Zoidberg' if you want by changing this line:
+
+    "15275": [ "Review", "ttm-review", "ttm-staging" ],
+
+to this:
+
+    "15275": [ "Review", "ttm-review", "ttm-staging", "Zoidberg" ],
+
+## Scalr commands: list
+
+### Command: deploy
+
+Deploys a Scalr application to all non-database roles on a farm.
+
+### Command: config:get
+
+Retrieve configuration for a farm. If you pass in a key you'll get just
+that value back so you can use it in a shell.
+
+### Command: config:set
+
+Assign configuration as key/value pairs to a farm. You can do multiple at
+once, or you can read from a file.
+
+### Command: maintenance
+
+Turn maintenance mode on or off.
+
+### Command: launch
+
+Launch one a server within a farm. Unfortunately you can do one at a time.
+(You can also launch a farm with this, but you'll almost never have to do this.)
+
+### Command: terminate
+
+Kill a server; if scalr thinks it should spin another up to compensate it will.
+
+### Command: psql
+
+Generate a psql command that will connect you to one of the databases.
+
+### Command: ssh
+
+Generate a ssh command that will connect you to a specific server.
+
+### Command: application:list
+
+List available applications
+
+### Command: farm
+
+### Command: farm:list
+
+### Command: farm:server
+
+### Command: script:list
 
 ## Scalr background
 

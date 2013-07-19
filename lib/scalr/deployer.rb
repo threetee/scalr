@@ -39,12 +39,15 @@ module Scalr
         raise "FAILED: Cannot fetch roles for farm: #{error}"
       end
 
-      db_roles = role_response.content.find_all {|role| role.name.match(/^PGSQL/)}
-      unless db_roles.empty?
-        raise "FAILED: Cannot deploy to a database farm. DB roles: #{db_roles.map{|r| r.name}.join(', ')}"
+      @monitors = role_response.content.
+          find_all {|role| ! role.name.match(/PGSQL/)}.
+          map {|role| Scalr::DeploymentMonitor.new(role, @farm_id, @verbose)}
+
+      if @monitors.empty?
+        raise 'FAILED: Cannot deploy to a farm with only database roles! ',
+              "Available roles: #{role_response.content.map{|r| r.name}.join(', ')}"
       end
 
-      @monitors = role_response.content.map {|role| Scalr::DeploymentMonitor.new(role, @farm_id, @verbose)}
       @verbose && puts("Deploying to roles: #{@monitors.map {|m| m.name}.join(', ')}")
     end
 

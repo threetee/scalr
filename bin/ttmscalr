@@ -179,6 +179,11 @@ Main {
   end
 
   mode 'maintenance' do
+    description 'Turn maintenance mode on or off'
+
+    examples "$ #{script_name} maintenance on -a prod",
+             "$ #{script_name} maintenance off -a review"
+
     argument 'mode' do
       description 'Either "on" or "off" to enable/disable maintenance mode'
       validate {|mode| mode.match(/^(on|off)$/)}
@@ -295,7 +300,10 @@ Main {
   end
 
   mode 'launch' do
-    description 'Launch a whole farm, or launch a server within a role'
+    description 'Launch a server within a role, or (way more rarely) launch a farm'
+
+    examples "$ #{script_name} launch -a production -r rails",
+             "$ #{script_name} launch -a review -r sidekiq"
 
     option 'farm, -a' do
       argument :optional
@@ -331,23 +339,28 @@ Main {
   mode 'terminate' do
     description 'Terminate a server'
 
-    option 'farm, -a' do
-      argument :required
-      description 'Farm "server" argument is in'
-    end
+    examples "$ #{script_name} terminate rails.12 -a production",
+             "$ #{script_name} terminate bunchball.1 -a review"
 
     argument 'server' do
       description 'Server alias to terminate (e.g., "rails.1")'
     end
 
+    option 'farm, -a' do
+      argument :required
+      description 'Farm "server" argument is in'
+    end
+
     def run
       response = dispatch(:server_terminate, params)
       return if generic_error(response)
-      puts "Server #{response.request_inputs['ServerID']} - result: #{response.content}"
+      puts "#{params['server'].value}: #{response.content}"
     end
   end
 
   mode 'exterminate' do
+    description 'Nothing bad will happen if you run this, honest.'
+
     def run
       puts <<-DALEK.gsub(/^ {6}/, '')
                  EX-TER-MIN-ATE!
@@ -385,9 +398,11 @@ Main {
   mode 'farm' do
     description 'Details about roles and other data within a farm'
 
-    option 'farm, -a' do
+    examples "$ #{script_name} farm production"
+
+    argument 'farm' do
       argument :required
-      description 'Farm to fetch details for'
+      description 'Farm ID/alias to fetch details for'
     end
 
     def run
@@ -406,13 +421,13 @@ Main {
   mode 'farm:server' do
     description 'Find out on which role a server lives within a farm'
 
-    option 'farm, -a' do
-      description 'Farm containing server'
+    argument 'server' do
+      description 'Server to find (must be GUID)'
       argument :required
     end
 
-    option 'server' do
-      description 'Server to find (must be GUID)'
+    option 'farm, -a' do
+      description 'Farm containing server'
       argument :required
     end
 
@@ -449,6 +464,9 @@ Main {
       or fetch a single variable as a string suitable for shell-inclusion.
     CONFIG
 
+    examples "#{script_name} config:get -a review",
+             "#{script_name} config:get TTM_SHARD_ONE_URL -a production"
+
     option 'farm, -a' do
       argument :required
       description 'Farm to get configuration from'
@@ -480,6 +498,10 @@ Main {
 
   mode 'config:set' do
     description 'Assign a key/value configuration pair to a farm.'
+
+    examples "#{script_name} config:set TTM_FRUIT=ORANGE -a review",
+             "#{script_name} config:set TTM_TIMEZONE_EXPERT=Carol TTM_REPORT_EXPERT=Greg -a review",
+             "#{script_name} config:set my_config.txt -a production"
 
     option 'farm, -a' do
       argument :required
@@ -603,6 +625,10 @@ Main {
   mode 'psql' do
     description 'Connect to a Scalr database via psql command line.'
 
+    examples "$ #{script_name} master -a production",
+             "$ #{script_name} one -a production",
+             "$ #{script_name} four -a production --url"
+
     argument 'db' do
       arity 1
       description 'Database descriptor, one of: master, 1, 2, 3, 4, one, two, three, four; default: master'
@@ -615,8 +641,6 @@ Main {
     end
 
     option 'url' do
-      cast :bool
-      default false
       description 'true if you want to output a URL, false (default) to include "psql" in the output'
     end
 
