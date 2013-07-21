@@ -684,9 +684,9 @@ Main {
   mode 'psql' do
     description 'Connect to a Scalr database via psql command line.'
 
-    examples "$ #{script_name} master -a production",
-             "$ #{script_name} one -a production",
-             "$ #{script_name} four -a production --url"
+    examples "$ #{script_name} psql master -a production",
+             "$ #{script_name} psql one -a production",
+             "$ #{script_name} psql four -a production --url"
 
     argument 'db' do
       arity 1
