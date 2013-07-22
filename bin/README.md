@@ -1,5 +1,13 @@
 # ttmscalr - a command-line tool for working with Scalr
 
+## Installing
+
+* Clone git@github.com:thinkthroughmath/scalr.git
+* Add scalr/bin dir to your PATH
+* gem install main (you'll also need activesupport and ruby-hmac, but if you're in your apangea gem environment you'll likely already have these. if you use rvm gemsets, you'll need to install these gems in the gemsets in which you'd like to use ttmscalr)
+* Get your API credentials and put them in a file like it says below
+* Now you should be able to run ttmscalr farm:list
+
 ## Configuring
 
 You need to tell Scalr your API credentials. Don't have these? Go get
