@@ -451,7 +451,7 @@ module Scalr
       end
 
       def identifier
-        "SCRIPT #{id}-#{script_name}-#{timestamp_formatted}"
+        "SCRIPT #{server_id}-#{script_name}-#{timestamp_formatted}"
       end
 
       def script_matches(match_script)

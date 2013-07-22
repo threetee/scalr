@@ -18,22 +18,28 @@ module Scalr
   end
 
   class LogSink
+    attr_accessor :id, :start_time
+
     def initialize(id)
       @id = id
       @logs = []
+      @start_time = Time.now
     end
 
     def <<(log_to_add)
-      unless @logs.any? {|log| log_to_add.identifier == log.identifier}
+      existing = @logs.any? {|log| log_to_add.identifier == log.identifier}
+      unless existing
         @logs << log_to_add
       end
+      existing ? 0 : 1
     end
 
     def +(logs)
       logs.each {|log| self << log}
     end
 
-    def config_and_launch_script
+    # retrieve the script that marks the end of a deployment
+    def end_of_deployment_script
       scripting_logs.find {|log_item| log_item.script_name == 'TTMAppConfigAndLaunch'}
     end
 
