@@ -212,6 +212,14 @@ to this:
 
     "15275": [ "Review", "ttm-review", "ttm-staging", "Zoidberg" ],
 
+It may happen that we add new aliases. To include them you can either:
+
+* delete the file (`~/.ttm_scalr_aliases.json`) and the next time you
+  run the script it'll regenerate the alias file for you, or
+* if you've customized the aliases you may want to modify them
+  yourself -- see `Scalr::TTMAliasReader` in `lib/scalr/ttm.rb` for
+  what we would generate
+
 ## Scalr commands: list
 
 ### Command: deploy

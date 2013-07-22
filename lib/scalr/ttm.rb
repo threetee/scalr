@@ -44,7 +44,10 @@ module Scalr
                 "15163": [ "DB-Test" ],
                 "15274": [ "PG-TEST" ],
                 "15275": [ "Review", "ttm-review", "ttm-staging" ],
-                "15331": [ "Winters" ]
+                "15331": [ "Winters" ],
+                "15596": [ "RC" ],
+                "15597": [ "lab", "apangea" ],
+                "15548": [ "DW-production", "DW", "DW-prod"]
               },
               "role": {
                 "RailsAppServer" : ["rails", "web"],
