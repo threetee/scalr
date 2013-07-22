@@ -1,20 +1,31 @@
 module Scalr::Failure
-  class S3Authentication
-    def matches?(log_item)
-      !log_item.message.match(/AWS Access Key Id you provided does not exist in our records/).nil?
-    end
+  class S3Authentication < BaseFailure
+    def description(context=nil)
+      config_variables = ['Sorry! Cannot fetch config entries, no :farm_id available.']
+      if context && context[:farm_id]
+        response = Scalr::Caller.new(:global_variables_list).invoke(context)
+        if response
+          config_variables = response.content.
+              find_all {|pair| pair.name_matches?(/^TTM_AWS_ACCESS/)}.
+              map &:to_s
+        end
+      end
 
-    def description
-      <<-DESC.gsub(/^\s+/, '')
-    This occurs when we copy static assets to S3 for it to serve. To fix check the validity
-    of the Scalr configuration entries TTM_AWS_ACCESS_KEY and TTM_AWS_ACCESS_ID below:
 
-    ----- SOMEHOW GET THE FARM_ID CONTEXT SO WE CAN FETCH THESE -----
+      <<-DESC.gsub(/^\s{8}/, '')
+        This occurs when we copy static assets to S3 for it to serve. To fix the problem
+        check the validity of these Scalr configuration entries:
+
+        #{config_variables.join("\n          ")}
       DESC
     end
 
     def name
       'AWS authentication failed during asset precompile.'
+    end
+
+    def pattern
+      /AWS Access Key Id you provided does not exist in our records/
     end
   end
 end

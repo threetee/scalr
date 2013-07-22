@@ -78,17 +78,19 @@ module Scalr
     end
 
     def summaries
+      context = {farm_id: @farm_id, role: @role}
       @servers.map do |server_deploy|
-        server_failures = server_deploy.failures
-        if server_failures.empty?
+        server_problems = server_deploy.failures
+        if server_problems.empty?
           server_status = server_deploy.done? ? 'OK' : server_deploy.status.upcase
           "#{server_status}: #{server_deploy.name}"
         else
-          "FAIL: #{server_deploy.name}\n" +
-              server_failures.map {|failure|
-                "** Script: #{failure.script_name}; Exit: #{failure.exit_code}; Exec time: #{failure.exec_time} sec\n" +
-                failure.types.map{|failure_type| failure_type.name + "\n" + failure_type.description}.join("\n")
-              }.join("\n")
+          server_message = "FAIL: #{server_deploy.name}\n"
+          server_problems.each do |problem|
+            server_message += "** Script: #{problem.script_name}; Exit: #{problem.exit_code}; Exec time: #{problem.exec_time} sec\n"
+            server_message += problem.for_display(context).join("\n")
+          end
+          server_message
         end
       end
     end

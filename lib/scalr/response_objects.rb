@@ -541,12 +541,12 @@ module Scalr
       end
 
       # does case-insensitive comparison to key
-      def key_equals?(other_name)
+      def name_equals?(other_name)
         name.downcase == other_name.downcase
       end
 
       # applies regex to key, case unmodified (key will always be in upper case though)
-      def key_matches?(pattern)
+      def name_matches?(pattern)
         name.match(pattern)
       end
 

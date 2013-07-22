@@ -1,11 +1,13 @@
 module Scalr::Failure
-  class Generic
+  class Generic < BaseFailure
     def description
       '(see log message)'
     end
 
-    def matches?(log_item)
-      true
+    # display the entire message rather than pieces since we can't
+    # pick out the relevant parts
+    def error_for_display(context = nil)
+      log_item.message
     end
 
     def name

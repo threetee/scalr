@@ -76,16 +76,20 @@ Main {
   ########## Deployment
 
   mode 'deploy' do
-    description 'Deploy an application to all roles within a farm.'
+    description <<-DESC
+      Deploy an application to all non-DB roles within a farm. Non-verbose output will show
+      you the number of servers remaining to finish deployment.'
+    DESC
 
-    examples "$ #{script_name} deploy production -a production"
+    examples "$ #{script_name} deploy production -a rc",
+             "$ #{script_name} deploy review"
 
     argument 'application' do
       description 'Application ID/alias to deploy. (Use "application:list" to list.)'
     end
     option 'farm, -a' do
       argument :required
-      description 'Farm we will deploy to'
+      description 'Farm we will deploy to, unnecessary if application alias the same as a farm alias'
     end
     option 'path' do
       argument :optional
@@ -553,7 +557,7 @@ Main {
       if response.content.nil? || response.content.empty?
         puts 'NO CONFIG FOUND'
       elsif matching_key = params['key'].value
-        found = response.content.detect {|pair| pair.key_equals?(matching_key)}
+        found = response.content.detect {|pair| pair.name_equals?(matching_key)}
         puts found.value if found
       else
         puts Scalr::ResponseObject::Variable.show_items(response.content).join("\n")
@@ -715,13 +719,13 @@ Main {
       return if generic_error(response)
 
       key = db_key(params['db'].value)
-      pair = response.content.find{|var| var.key_equals?(key)}
+      pair = response.content.find{|var| var.name_equals?(key)}
       if pair
         external_url = pair.value.gsub(/int/, 'ext')
         puts(params['url'].value ? external_url : "psql #{external_url}")
       else
         similar_pairs = response.content.
-            find_all {|var| var.key_matches?(/^TTM.+URL$/)}.
+            find_all {|var| var.name_matches?(/^TTM.+URL$/)}.
             map{|var| var.to_s}.
             join("\n  ")
         $stderr.puts <<-MISSING.gsub(/^ {11}/, '')
