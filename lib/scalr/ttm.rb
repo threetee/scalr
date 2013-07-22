@@ -35,19 +35,19 @@ module Scalr
           out.puts <<-DEFAULTALIASES.gsub(/^ {12}/, '')
             {
               "farm": {
-                "15356": [ "Prod-DB-Primary", "master" ],
-                "15357": [ "Prod-DB-Shard1", "shard1" ],
-                "15358": [ "Prod-DB-Shard2", "shard2" ],
-                "15359": [ "Prod-DB-Shard3", "shard3" ],
-                "15360": [ "Prod-DB-Shard4", "shard4" ],
-                "14498": [ "Production", "ttm-production" ],
-                "15163": [ "DB-Test" ],
-                "15274": [ "PG-TEST" ],
-                "15275": [ "Review", "ttm-review", "ttm-staging" ],
-                "15331": [ "Winters" ],
-                "15596": [ "RC" ],
-                "15597": [ "lab", "apangea" ],
-                "15548": [ "DW-production", "DW", "DW-prod"]
+                "15356": ["Prod-DB-Primary", "master"],
+                "15357": ["Prod-DB-Shard1", "shard1"],
+                "15358": ["Prod-DB-Shard2", "shard2"],
+                "15359": ["Prod-DB-Shard3", "shard3"],
+                "15360": ["Prod-DB-Shard4", "shard4"],
+                "14498": ["Production", "ttm-production"],
+                "15163": ["DB-Test"],
+                "15274": ["PG-TEST"],
+                "15275": ["Review", "ttm-review", "ttm-staging"],
+                "15331": ["Winters"],
+                "15596": ["RC"],
+                "15597": ["lab", "apangea"],
+                "15548": ["DW-production", "DW", "DW-prod"]
               },
               "role": {
                 "RailsAppServer" : ["rails", "web"],
@@ -55,7 +55,8 @@ module Scalr
                 "Bunchball"      : ["bunchball", "bb"],
                 "SystemWatcher"  : ["watcher"],
                 "Reports"        : ["reports"],
-                "DevDebug"       : ["debug"]
+                "DevDebug"       : ["debug"],
+                "PGSQL-9-2"      : ["pg", "pgsql", "psql"]
               },
               "application": {
                 "968":  ["production", "master"],
