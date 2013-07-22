@@ -146,6 +146,10 @@ module Scalr
         obj
       end
 
+      def identifier
+        "DEPLOY #{id}-#{timestamp_formatted}"
+      end
+
       def message_trimmed
         message.gsub(/[\r\n]/, ' ').rstrip
       end
@@ -319,6 +323,10 @@ module Scalr
         self.class.show_items([self])
       end
 
+      def identifier
+        "SYSTEM #{server_id}-#{timestamp_formatted}"
+      end
+
       def matches_source(match_source)
         match_source && (match_source == 'all' || match_source == '*' || match_source == source || source.nil?)
       end
@@ -440,6 +448,10 @@ module Scalr
 
       def failure?
         !success?
+      end
+
+      def identifier
+        "SCRIPT #{id}-#{script_name}-#{timestamp_formatted}"
       end
 
       def script_matches(match_script)

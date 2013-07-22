@@ -4,6 +4,7 @@ module Scalr
       @sinks = sinks
     end
 
+    # distribute the log to the sink with the given ID
     def <<(id, log)
       sink = sink_by_id(id)
       sink << log if sink
@@ -22,8 +23,10 @@ module Scalr
       @logs = []
     end
 
-    def <<(log)
-      @logs << log
+    def <<(log_to_add)
+      unless @logs.any? {|log| log_to_add.identifier == log.identifier}
+        @logs << log_to_add
+      end
     end
 
     def +(logs)
