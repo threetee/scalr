@@ -63,7 +63,7 @@ See more about them below.
 
 You can get details about a farm:
 
-    $ ttmscalr farm -a review
+    $ ttmscalr farm review
     FARM: 15275 (aliases: review, ttm-review, ttm-staging)
     ========================================
     ROLE: RailsAppServer (our aliases: web, rails)
