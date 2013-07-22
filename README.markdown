@@ -1,6 +1,6 @@
 # Looking for ttmscalr?
 
-See instructions and help in [[bin/README.md]].
+See instructions and help in [[bin/README.md](https://github.com/thinkthroughmath/scalr/tree/master/bin)].
 
 # Scalr Gem
 
