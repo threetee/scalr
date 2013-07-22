@@ -53,6 +53,9 @@ def dispatch(action_name, params)
 end
 
 def invoke(action_name, options = {})
+  if params['debug'].value
+    Scalr.debug = $stderr
+  end
   Scalr::Caller.new(action_name).invoke(options)
 end
 
@@ -65,6 +68,10 @@ Main {
     Command-line interface for Scalr, with TTM-specific additions which make it
     look more like the heroku application. See README.md for more.
   DESC
+
+  option 'debug' do
+    description 'Turn on debugging to see the URL and raw response.'
+  end
 
   ########## Deployment
 

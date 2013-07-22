@@ -1,3 +1,7 @@
+# Looking for ttmscalr?
+
+See instructions and help in [[bin/README.md]].
+
 # Scalr Gem
 
 Scalr is a cloud infrastructure management provider. This gem is for interfacing with the Scalr.net API to obtain information about your instances and farms.
