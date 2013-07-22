@@ -6,6 +6,9 @@
 * Add scalr/bin dir to your PATH
 * gem install main (you'll also need activesupport and ruby-hmac, but if you're in your apangea gem environment you'll likely already have these. if you use rvm gemsets, you'll need to install these gems in the gemsets in which you'd like to use ttmscalr)
 * Get your API credentials and put them in a file like it says below
+* Build and install the scalr gem:
+    * `gem build scalr.gemspec`
+    * `gem install ./scalr-0.2.3.gem`
 * Now you should be able to run ttmscalr farm:list
 
 ## Configuring
