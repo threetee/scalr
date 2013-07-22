@@ -2,9 +2,21 @@
 
 ## Configuring
 
-You need to tell Scalr your API credentials. Don't have these? Go get
-them -- Andre can create an account for you, and once you login click on
-your profile in the upper-right and choose 'API Access'.
+### Dependencies
+
+The original version of `scalr` requires __ActiveSupport__, and we added
+a dependency on __main__. Both are in the `.gemspec` file but you can
+install manually:
+
+    $ gem install main
+    $ gem install activesupport
+
+### Scalr API credentials
+
+You need to tell Scalr your API credentials so you can exercise the API.
+Don't have these? Go get them -- Andre can create an account for you,
+and once you login click on your profile in the upper-right and choose
+'API Access'.
 
 You can tell Scalr your credentials in one of two ways:
 
@@ -29,6 +41,33 @@ The Scalr access credentials should be in the file like this:
 
 DO NOT ADD THIS FILE TO git! It's already in `.gitignore` so you
 shouldn't be able to do so accidentally in the scalr gem.
+
+### Add to PATH
+
+Add this directory to your PATH. For a one-off, assuming this repo is
+`~/Projects/TTM/scalr` you'd do:
+
+    $ export PATH=~/Projects/TTM/scalr/bin:$PATH
+
+For a more permanent solution you might have in your `~/.bashrc` or
+`~/.bash_profile` something like:
+
+
+    SCALR_HOME=~/Projects/TTM/scalr
+    NODE_HOME=~/tools/node/current
+    ...
+
+    export PATH=~/bin:$SCALR_HOME/bin:$NODE_HOME/bin
+
+### Test it out!
+
+To see if it's working run:
+
+    $ ttmscalr farm:list
+
+If you want to see the URL and response content:
+
+    $ ttmscalr farm:list --debug
 
 ## Quick intro
 
