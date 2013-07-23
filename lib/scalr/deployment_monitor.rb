@@ -133,9 +133,5 @@ module Scalr
     def log_sinks
       @log_sinks ||= Scalr::LogSinks.new(@servers.map &:log_sink)
     end
-
-    def poller
-      @poller ||= Scalr::StatefulScriptPoller.new(@farm_id, @role.servers_running, 'TTMAppConfigAndLaunch')
-    end
   end
 end
