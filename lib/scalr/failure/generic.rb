@@ -1,6 +1,6 @@
 module Scalr::Failure
   class Generic < BaseFailure
-    def description
+    def description(context = nil)
       '(see log message)'
     end
 
