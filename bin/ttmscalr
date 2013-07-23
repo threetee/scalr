@@ -28,7 +28,7 @@ def generic_error(response)
 end
 
 def logging_options(main)
-  main.option 'farm, -a' do
+  main.option 'farm, -f' do
     argument :required
     description 'Farm with logs'
   end
@@ -81,13 +81,13 @@ Main {
       you the number of servers remaining to finish deployment.'
     DESC
 
-    examples "$ #{script_name} deploy production -a rc",
+    examples "$ #{script_name} deploy production -f rc",
              "$ #{script_name} deploy review"
 
     argument 'application' do
       description 'Application ID/alias to deploy. (Use "application:list" to list.)'
     end
-    option 'farm, -a' do
+    option 'farm, -f' do
       argument :required
       description 'Farm we will deploy to, unnecessary if application alias the same as a farm alias'
     end
@@ -172,7 +172,7 @@ Main {
     argument 'application' do
       description 'Application ID/alias to deploy. (Use "application:list" to list.)'
     end
-    option 'farm, -a' do
+    option 'farm, -f' do
       argument :required
       description 'Farm to use when resolving role (if aliased)'
     end
@@ -199,7 +199,7 @@ Main {
       argument :optional
       description 'ID of application'
     end
-    option 'farm, -a' do
+    option 'farm, -f' do
       argument :optional
       description 'Farm to display tasks for'
     end
@@ -252,14 +252,14 @@ Main {
   mode 'maintenance' do
     description 'Turn maintenance mode on or off'
 
-    examples "$ #{script_name} maintenance on -a prod",
-             "$ #{script_name} maintenance off -a review"
+    examples "$ #{script_name} maintenance on -f prod",
+             "$ #{script_name} maintenance off -f review"
 
     argument 'mode' do
       description 'Either "on" or "off" to enable/disable maintenance mode'
       validate {|mode| mode.match(/^(on|off)$/)}
     end
-    option 'farm, -a' do
+    option 'farm, -f' do
       argument :required
       description 'Farm we will put into maintenance mode'
     end
@@ -372,10 +372,10 @@ Main {
   mode 'launch' do
     description 'Launch a server within a role, or (way more rarely) launch a farm'
 
-    examples "$ #{script_name} launch -a production -r rails",
-             "$ #{script_name} launch -a review -r sidekiq"
+    examples "$ #{script_name} launch -f production -r rails",
+             "$ #{script_name} launch -f review -r sidekiq"
 
-    option 'farm, -a' do
+    option 'farm, -f' do
       argument :optional
       description 'Farm to launch'
     end
@@ -409,14 +409,14 @@ Main {
   mode 'terminate' do
     description 'Terminate a server'
 
-    examples "$ #{script_name} terminate rails.12 -a production",
-             "$ #{script_name} terminate bunchball.1 -a review"
+    examples "$ #{script_name} terminate rails.12 -f production",
+             "$ #{script_name} terminate bunchball.1 -f review"
 
     argument 'server' do
       description 'Server alias to terminate (e.g., "rails.1")'
     end
 
-    option 'farm, -a' do
+    option 'farm, -f' do
       argument :required
       description 'Farm "server" argument is in'
     end
@@ -496,7 +496,7 @@ Main {
       argument :required
     end
 
-    option 'farm, -a' do
+    option 'farm, -f' do
       description 'Farm containing server'
       argument :required
     end
@@ -534,10 +534,10 @@ Main {
       or fetch a single variable as a string suitable for shell-inclusion.
     CONFIG
 
-    examples "#{script_name} config:get -a review",
-             "#{script_name} config:get TTM_SHARD_ONE_URL -a production"
+    examples "#{script_name} config:get -f review",
+             "#{script_name} config:get TTM_SHARD_ONE_URL -f production"
 
-    option 'farm, -a' do
+    option 'farm, -f' do
       argument :required
       description 'Farm to get configuration from'
     end
@@ -569,11 +569,11 @@ Main {
   mode 'config:set' do
     description 'Assign a key/value configuration pair to a farm.'
 
-    examples "#{script_name} config:set TTM_FRUIT=ORANGE -a review",
-             "#{script_name} config:set TTM_TIMEZONE_EXPERT=Carol TTM_REPORT_EXPERT=Greg -a review",
-             "#{script_name} config:set my_config.txt -a production"
+    examples "#{script_name} config:set TTM_FRUIT=ORANGE -f review",
+             "#{script_name} config:set TTM_TIMEZONE_EXPERT=Carol TTM_REPORT_EXPERT=Greg -f review",
+             "#{script_name} config:set my_config.txt -f production"
 
-    option 'farm, -a' do
+    option 'farm, -f' do
       argument :required
       description "Farm to which we'll assign configuration"
     end
@@ -639,15 +639,15 @@ Main {
   mode 'ssh' do
     description 'Generate SSH command to connect to a specific server within a farm and role.'
 
-    examples "#{script_name} ssh rails.1 -a review",
-             "#{script_name} ssh sidekiq.2 -a production",
-             "#{script_name} ssh 12 -a production -r rails"
+    examples "#{script_name} ssh rails.1 -f review",
+             "#{script_name} ssh sidekiq.2 -f production",
+             "#{script_name} ssh 12 -f production -r rails"
 
     argument 'server' do
       description 'Server index to use with role, or "role.index" name (e.g., "rails.2")'
     end
 
-    option 'farm, -a' do
+    option 'farm, -f' do
       argument :required
       description 'Farm containing role + server'
     end
@@ -695,9 +695,9 @@ Main {
   mode 'psql' do
     description 'Connect to a Scalr database via psql command line.'
 
-    examples "$ #{script_name} psql master -a production",
-             "$ #{script_name} psql one -a production",
-             "$ #{script_name} psql four -a production --url"
+    examples "$ #{script_name} psql master -f production",
+             "$ #{script_name} psql one -f production",
+             "$ #{script_name} psql four -f production --url"
 
     argument 'db' do
       arity 1
@@ -705,7 +705,7 @@ Main {
       default 'master'
     end
 
-    option 'farm, -a' do
+    option 'farm, -f' do
       argument :required
       description 'Farm with database configurations'
     end

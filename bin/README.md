@@ -91,7 +91,7 @@ See more about them below.
 
 You can get details about a farm:
 
-    $ ttmscalr farm -a review
+    $ ttmscalr farm -f review
     FARM: 15275 (aliases: review, ttm-review, ttm-staging)
     ========================================
     ROLE: RailsAppServer (our aliases: web, rails)
@@ -149,7 +149,7 @@ You can get details about a farm:
 To see what's going on with one of the servers you can SSH directly in. Run
 a command to do so and the tool will tell you how to get the private key:
 
-    $ ttmscalr ssh debug.1 -a review
+    $ ttmscalr ssh debug.1 -f review
 
     Expected key file (/home/cwinters/.ssh/FARM-15275.us-east-1.private.pem) does not exist.
     Here's how to fix it:
@@ -184,16 +184,16 @@ For example:
     PARAMETERS
       server (1 -> server)
           Server index to use with role, or "role.index" name (e.g., "rails.2")
-      --farm=farm, -a (0 ~> farm)
+      --farm=farm, -f (0 ~> farm)
           Farm containing role + server
       --role=[role], -r (0 ~> role)
           Role with server, required unless using role name with "server" arg
       --help, -h
 
     EXAMPLES
-      ttmscalr ssh rails.1 -a review
-      ttmscalr ssh sidekiq.2 -a production
-      ttmscalr ssh 12 -a production -r rails
+      ttmscalr ssh rails.1 -f review
+      ttmscalr ssh sidekiq.2 -f production
+      ttmscalr ssh 12 -f production -r rails
 
 The parameter description tells you (in a slightly obscure manner) whether it's
 required or not.
