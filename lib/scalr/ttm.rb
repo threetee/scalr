@@ -60,7 +60,9 @@ module Scalr
               },
               "application": {
                 "968":  ["production", "master"],
-                "1204": ["review", "staging"]
+                "1204": ["review", "staging"],
+                "1242": ["lab", "apangea"],
+                "1243": ["rc", "ttm-rc"]
               }
             }
           DEFAULTALIASES
