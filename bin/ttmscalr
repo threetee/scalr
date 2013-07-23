@@ -53,9 +53,6 @@ def dispatch(action_name, params)
 end
 
 def invoke(action_name, options = {})
-  if params['debug'].value
-    Scalr.debug = $stderr
-  end
   Scalr::Caller.new(action_name).invoke(options)
 end
 
@@ -71,6 +68,7 @@ Main {
 
   option 'debug' do
     description 'Turn on debugging to see the URL and raw response.'
+    validate {|value| Scalr.debug = $stderr if value; true} # sneaky use of validate, sorry...
   end
 
   ########## Deployment
