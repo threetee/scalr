@@ -673,7 +673,9 @@ Main {
       farm_id = response.request_inputs['FarmID']
       key_path = File.expand_path("~/.ssh/FARM-#{farm_id}.#{server.platform_properties.availability_zone_brief}.private.pem")
       if File.exists?(key_path)
-        puts "ssh -i #{key_path} root@#{server.external_ip}"
+        command = "ssh -i #{key_path} root@#{server.external_ip}"
+        puts "Executing `#{command}`"
+        exec command
       else
         $stderr.puts(<<-KEYFILE.gsub(/^ {10}/, ''))
 
@@ -722,7 +724,9 @@ Main {
       pair = response.content.find{|var| var.name_equals?(key)}
       if pair
         external_url = pair.value.gsub(/int/, 'ext')
-        puts(params['url'].value ? external_url : "psql #{external_url}")
+        command = params['url'].value ? external_url : "psql #{external_url}"
+        puts "Executing `#{command}`"
+        exec command
       else
         similar_pairs = response.content.
             find_all {|var| var.name_matches?(/^TTM.+URL$/)}.
