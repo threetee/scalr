@@ -56,11 +56,10 @@ module Scalr
     # returns: true if any server status changed, false if none did
     def refresh_status
       changed = @servers.any? &:refresh
-      @status = 'completed' if @servers.all? {|server_deploy| server_deploy.completed?}
-      @status = 'deployed'  if @servers.all? {|server_deploy| server_deploy.deployed?}
-      @status = 'deploying' if @servers.all? {|server_deploy| server_deploy.deploying?}
-      @status = 'failed'    if @servers.all? {|server_deploy| server_deploy.failed?}
-      @status = 'pending'   if @servers.all? {|server_deploy| server_deploy.pending?}
+      [:completed, :deployed, :deploying, :failed, :pending].each do |status_name|
+        check = (status_name.to_s + '?').to_sym
+        @status = status_name.to_s if @servers.all? {|server_deploy| server_deploy.send(check)}
+      end
       changed
     end
 
