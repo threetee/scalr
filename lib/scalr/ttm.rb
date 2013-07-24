@@ -89,7 +89,7 @@ module Scalr
       Scalr.key_id = values[:key_id]
       Scalr.access_key = values[:access_key]
     end
-    [Scalr.key_id, Scalr.access_key].all? {|str| ! str.nil? && str.strip.length > 0 }
+    [Scalr.key_id, Scalr.access_key].all? {|str| ! str.nil? && str.strip.length > 0}
   end
 
   def self.hash_from_file(filename)
