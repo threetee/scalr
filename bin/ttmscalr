@@ -14,8 +14,13 @@ require 'scalr/deployer'
 require 'scalr/poller'
 require 'scalr/ssher'
 
-Scalr.read_access_info
-#Scalr.debug = $stderr
+unless Scalr.read_access_info
+  puts <<-CONF
+  CONFIGURATION ERROR: You do not have available Scalr access credentials. Please
+  read 'Scalr API credentials' in #{bin_path}/README.md.
+  CONF
+  Process::exit(1)
+end
 
 def script_name
   File.basename($0)

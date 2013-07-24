@@ -79,6 +79,7 @@ module Scalr
 
   Scalr.alias_reader = Scalr::TTMAliasReader.new()
 
+  # @return true if Scalr API credentials available, false if not
   def self.read_access_info
     if ENV['SCALR_KEY_ID'] && ENV['SCALR_ACCESS_KEY']
       Scalr.key_id = ENV['SCALR_KEY_ID']
@@ -87,9 +88,8 @@ module Scalr
       values = Scalr.hash_from_file(access_file)
       Scalr.key_id = values[:key_id]
       Scalr.access_key = values[:access_key]
-    else
-      raise "No access information found in environment or file 'access_info'"
     end
+    Scalr.key_id.strip.length > 0 && Scalr.access_key.strip.length > 0
   end
 
   def self.hash_from_file(filename)
