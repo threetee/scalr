@@ -35,16 +35,19 @@ module Scalr
           out.puts <<-DEFAULTALIASES.gsub(/^ {12}/, '')
             {
               "farm": {
-                "15356": [ "Prod-DB-Primary", "master" ],
-                "15357": [ "Prod-DB-Shard1", "shard1" ],
-                "15358": [ "Prod-DB-Shard2", "shard2" ],
-                "15359": [ "Prod-DB-Shard3", "shard3" ],
-                "15360": [ "Prod-DB-Shard4", "shard4" ],
-                "14498": [ "Production", "ttm-production" ],
-                "15163": [ "DB-Test" ],
-                "15274": [ "PG-TEST" ],
-                "15275": [ "Review", "ttm-review", "ttm-staging" ],
-                "15331": [ "Winters" ]
+                "15356": ["Prod-DB-Primary", "master"],
+                "15357": ["Prod-DB-Shard1", "shard1"],
+                "15358": ["Prod-DB-Shard2", "shard2"],
+                "15359": ["Prod-DB-Shard3", "shard3"],
+                "15360": ["Prod-DB-Shard4", "shard4"],
+                "14498": ["Production", "ttm-production"],
+                "15163": ["DB-Test"],
+                "15274": ["PG-TEST"],
+                "15275": ["Review", "ttm-review", "ttm-staging"],
+                "15331": ["Winters"],
+                "15596": ["RC"],
+                "15597": ["lab", "apangea"],
+                "15548": ["DW-production", "DW", "DW-prod"]
               },
               "role": {
                 "RailsAppServer" : ["rails", "web"],
@@ -52,11 +55,14 @@ module Scalr
                 "Bunchball"      : ["bunchball", "bb"],
                 "SystemWatcher"  : ["watcher"],
                 "Reports"        : ["reports"],
-                "DevDebug"       : ["debug"]
+                "DevDebug"       : ["debug"],
+                "PGSQL-9-2"      : ["pg", "pgsql", "psql"]
               },
               "application": {
                 "968":  ["production", "master"],
-                "1204": ["review", "staging"]
+                "1204": ["review", "staging"],
+                "1242": ["lab", "apangea"],
+                "1243": ["rc", "ttm-rc"]
               }
             }
           DEFAULTALIASES
@@ -73,6 +79,7 @@ module Scalr
 
   Scalr.alias_reader = Scalr::TTMAliasReader.new()
 
+  # @return true if Scalr API credentials available, false if not
   def self.read_access_info
     if ENV['SCALR_KEY_ID'] && ENV['SCALR_ACCESS_KEY']
       Scalr.key_id = ENV['SCALR_KEY_ID']
@@ -81,9 +88,8 @@ module Scalr
       values = Scalr.hash_from_file(access_file)
       Scalr.key_id = values[:key_id]
       Scalr.access_key = values[:access_key]
-    else
-      raise "No access information found in environment or file 'access_info'"
     end
+    [Scalr.key_id, Scalr.access_key].all? {|str| ! str.nil? && str.strip.length > 0}
   end
 
   def self.hash_from_file(filename)

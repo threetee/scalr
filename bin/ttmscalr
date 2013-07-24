@@ -12,12 +12,20 @@ require 'scalr/ttm'
 require 'scalr/caller'
 require 'scalr/deployer'
 require 'scalr/poller'
-
-Scalr.read_access_info
-#Scalr.debug = $stderr
+require 'scalr/ssher'
 
 def script_name
   File.basename($0)
+end
+
+unless Scalr.read_access_info
+  puts <<-CONF
+  CONFIGURATION ERROR: You do not have available Scalr access credentials. Please
+  read 'Scalr API credentials' in #{bin_path}/README.md.
+
+  Called with: #{script_name} #{ARGV.join(' ')}
+  CONF
+  Process::exit(1)
 end
 
 def generic_error(response)
@@ -28,7 +36,7 @@ def generic_error(response)
 end
 
 def logging_options(main)
-  main.option 'farm, -a' do
+  main.option 'farm, -f' do
     argument :required
     description 'Farm with logs'
   end
@@ -66,19 +74,28 @@ Main {
     look more like the heroku application. See README.md for more.
   DESC
 
+  option 'debug' do
+    description 'Turn on debugging to see the URL and raw response.'
+    validate {|value| Scalr.debug = $stderr if value; true} # sneaky use of validate, sorry...
+  end
+
   ########## Deployment
 
   mode 'deploy' do
-    description 'Deploy an application to all roles within a farm.'
+    description <<-DESC
+      Deploy an application to all non-DB roles within a farm. Non-verbose output will show
+      you the number of servers remaining to finish deployment.'
+    DESC
 
-    examples "$ #{script_name} deploy production -a production"
+    examples "$ #{script_name} deploy production -f rc",
+             "$ #{script_name} deploy review"
 
     argument 'application' do
       description 'Application ID/alias to deploy. (Use "application:list" to list.)'
     end
-    option 'farm, -a' do
+    option 'farm, -f' do
       argument :required
-      description 'Farm we will deploy to'
+      description 'Farm we will deploy to, unnecessary if application alias the same as a farm alias'
     end
     option 'path' do
       argument :optional
@@ -161,7 +178,7 @@ Main {
     argument 'application' do
       description 'Application ID/alias to deploy. (Use "application:list" to list.)'
     end
-    option 'farm, -a' do
+    option 'farm, -f' do
       argument :required
       description 'Farm to use when resolving role (if aliased)'
     end
@@ -188,7 +205,7 @@ Main {
       argument :optional
       description 'ID of application'
     end
-    option 'farm, -a' do
+    option 'farm, -f' do
       argument :optional
       description 'Farm to display tasks for'
     end
@@ -241,14 +258,14 @@ Main {
   mode 'maintenance' do
     description 'Turn maintenance mode on or off'
 
-    examples "$ #{script_name} maintenance on -a prod",
-             "$ #{script_name} maintenance off -a review"
+    examples "$ #{script_name} maintenance on -f prod",
+             "$ #{script_name} maintenance off -f review"
 
     argument 'mode' do
       description 'Either "on" or "off" to enable/disable maintenance mode'
       validate {|mode| mode.match(/^(on|off)$/)}
     end
-    option 'farm, -a' do
+    option 'farm, -f' do
       argument :required
       description 'Farm we will put into maintenance mode'
     end
@@ -361,10 +378,10 @@ Main {
   mode 'launch' do
     description 'Launch a server within a role, or (way more rarely) launch a farm'
 
-    examples "$ #{script_name} launch -a production -r rails",
-             "$ #{script_name} launch -a review -r sidekiq"
+    examples "$ #{script_name} launch -f production -r rails",
+             "$ #{script_name} launch -f review -r sidekiq"
 
-    option 'farm, -a' do
+    option 'farm, -f' do
       argument :optional
       description 'Farm to launch'
     end
@@ -398,14 +415,14 @@ Main {
   mode 'terminate' do
     description 'Terminate a server'
 
-    examples "$ #{script_name} terminate rails.12 -a production",
-             "$ #{script_name} terminate bunchball.1 -a review"
+    examples "$ #{script_name} terminate rails.12 -f production",
+             "$ #{script_name} terminate bunchball.1 -f review"
 
     argument 'server' do
       description 'Server alias to terminate (e.g., "rails.1")'
     end
 
-    option 'farm, -a' do
+    option 'farm, -f' do
       argument :required
       description 'Farm "server" argument is in'
     end
@@ -485,7 +502,7 @@ Main {
       argument :required
     end
 
-    option 'farm, -a' do
+    option 'farm, -f' do
       description 'Farm containing server'
       argument :required
     end
@@ -523,10 +540,10 @@ Main {
       or fetch a single variable as a string suitable for shell-inclusion.
     CONFIG
 
-    examples "#{script_name} config:get -a review",
-             "#{script_name} config:get TTM_SHARD_ONE_URL -a production"
+    examples "#{script_name} config:get -f review",
+             "#{script_name} config:get TTM_SHARD_ONE_URL -f production"
 
-    option 'farm, -a' do
+    option 'farm, -f' do
       argument :required
       description 'Farm to get configuration from'
     end
@@ -546,7 +563,7 @@ Main {
       if response.content.nil? || response.content.empty?
         puts 'NO CONFIG FOUND'
       elsif matching_key = params['key'].value
-        found = response.content.detect {|pair| pair.key_equals?(matching_key)}
+        found = response.content.detect {|pair| pair.name_equals?(matching_key)}
         puts found.value if found
       else
         puts Scalr::ResponseObject::Variable.show_items(response.content).join("\n")
@@ -558,11 +575,11 @@ Main {
   mode 'config:set' do
     description 'Assign a key/value configuration pair to a farm.'
 
-    examples "#{script_name} config:set TTM_FRUIT=ORANGE -a review",
-             "#{script_name} config:set TTM_TIMEZONE_EXPERT=Carol TTM_REPORT_EXPERT=Greg -a review",
-             "#{script_name} config:set my_config.txt -a production"
+    examples "#{script_name} config:set TTM_FRUIT=ORANGE -f review",
+             "#{script_name} config:set TTM_TIMEZONE_EXPERT=Carol TTM_REPORT_EXPERT=Greg -f review",
+             "#{script_name} config:set my_config.txt -f production"
 
-    option 'farm, -a' do
+    option 'farm, -f' do
       argument :required
       description "Farm to which we'll assign configuration"
     end
@@ -628,15 +645,15 @@ Main {
   mode 'ssh' do
     description 'Generate SSH command to connect to a specific server within a farm and role.'
 
-    examples "#{script_name} ssh rails.1 -a review",
-             "#{script_name} ssh sidekiq.2 -a production",
-             "#{script_name} ssh 12 -a production -r rails"
+    examples "#{script_name} ssh rails.1 -f review",
+             "#{script_name} ssh sidekiq.2 -f production",
+             "#{script_name} ssh 12 -f production -r rails"
 
     argument 'server' do
       description 'Server index to use with role, or "role.index" name (e.g., "rails.2")'
     end
 
-    option 'farm, -a' do
+    option 'farm, -f' do
       argument :required
       description 'Farm containing role + server'
     end
@@ -647,46 +664,40 @@ Main {
     end
 
     def run
-      response = dispatch(:farm_get_details, params)
-      return if generic_error(response)
+      Scalr::Ssher.new(params).execute
+    end
+  end
 
-      server = Scalr::ResponseObject::FarmRole.
-                 single_server(response.content, params['server'].value)
+  class Value
+    attr_reader :value
 
-      unless server
-        $stderr.puts("Failed to identify server with: #{params['server'].value}")
-        exit_status 1
-        return
-      end
+    def initialize(val)
+      @value = val
+    end
+  end
 
-      farm_id = response.request_inputs['FarmID']
-      key_path = File.expand_path("~/.ssh/FARM-#{farm_id}.#{server.platform_properties.availability_zone_brief}.private.pem")
-      if File.exists?(key_path)
-        puts "ssh -i #{key_path} root@#{server.external_ip}"
-      else
-        $stderr.puts(<<-KEYFILE.gsub(/^ {10}/, ''))
+  mode 'rails_console' do
+    description 'Generate SSH command to execute a rails console on a farm.'
 
-          Expected key file (#{key_path}) does not exist.
-          Here's how to fix it:
-            - go to https://my.scalr.com/#/sshkeys/view
-            - find the row with the 'Farm ID' column as #{farm_id}
-            - click the 'Actions' dropdown in its far right column
-            - choose 'Download private key'
-            - store it to #{key_path}
-            - execute: 'chmod 400 #{key_path}'
-              (so ssh won't complain about permissive permissions)
-        KEYFILE
-        exit_status 1
-      end
+    examples "#{script_name} rails_console -f review"
+
+    option 'farm, -f' do
+      argument :required
+      description 'Farm containing role + server'
+    end
+
+    def run
+      params['server'] = Value.new('debug.1')
+      Scalr::Ssher.new(params).execute('-t "source /etc/profile.d/TTM.ENV.sh; cd /var/www; rails console"')
     end
   end
 
   mode 'psql' do
     description 'Connect to a Scalr database via psql command line.'
 
-    examples "$ #{script_name} psql master -a production",
-             "$ #{script_name} psql one -a production",
-             "$ #{script_name} psql four -a production --url"
+    examples "$ #{script_name} psql master -f production",
+             "$ #{script_name} psql one -f production",
+             "$ #{script_name} psql four -f production --url"
 
     argument 'db' do
       arity 1
@@ -694,7 +705,7 @@ Main {
       default 'master'
     end
 
-    option 'farm, -a' do
+    option 'farm, -f' do
       argument :required
       description 'Farm with database configurations'
     end
@@ -708,13 +719,15 @@ Main {
       return if generic_error(response)
 
       key = db_key(params['db'].value)
-      pair = response.content.find{|var| var.key_equals?(key)}
+      pair = response.content.find{|var| var.name_equals?(key)}
       if pair
         external_url = pair.value.gsub(/int/, 'ext')
-        puts(params['url'].value ? external_url : "psql #{external_url}")
+        command = params['url'].value ? external_url : "psql #{external_url}"
+        puts "Executing `#{command}`"
+        exec command
       else
         similar_pairs = response.content.
-            find_all {|var| var.key_matches?(/^TTM.+URL$/)}.
+            find_all {|var| var.name_matches?(/^TTM.+URL$/)}.
             map{|var| var.to_s}.
             join("\n  ")
         $stderr.puts <<-MISSING.gsub(/^ {11}/, '')

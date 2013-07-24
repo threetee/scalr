@@ -56,11 +56,10 @@ module Scalr
     # returns: true if any server status changed, false if none did
     def refresh_status
       changed = @servers.any? &:refresh
-      @status = 'completed' if @servers.all? {|server_deploy| server_deploy.completed?}
-      @status = 'deployed'  if @servers.all? {|server_deploy| server_deploy.deployed?}
-      @status = 'deploying' if @servers.all? {|server_deploy| server_deploy.deploying?}
-      @status = 'failed'    if @servers.all? {|server_deploy| server_deploy.failed?}
-      @status = 'pending'   if @servers.all? {|server_deploy| server_deploy.pending?}
+      [:completed, :deployed, :deploying, :failed, :pending].each do |status_name|
+        check = (status_name.to_s + '?').to_sym
+        @status = status_name.to_s if @servers.all? {|server_deploy| server_deploy.send(check)}
+      end
       changed
     end
 
@@ -78,17 +77,19 @@ module Scalr
     end
 
     def summaries
+      context = {farm_id: @farm_id, role: @role}
       @servers.map do |server_deploy|
-        server_failures = server_deploy.failures
-        if server_failures.empty?
+        server_problems = server_deploy.failures
+        if server_problems.empty?
           server_status = server_deploy.done? ? 'OK' : server_deploy.status.upcase
           "#{server_status}: #{server_deploy.name}"
         else
-          "FAIL: #{server_deploy.name}\n" +
-              server_failures.map {|failure|
-                "** Script: #{failure.script_name}; Exit: #{failure.exit_code}; Exec time: #{failure.exec_time} sec\n" +
-                failure.types.map{|failure_type| failure_type.name + "\n" + failure_type.description}.join("\n")
-              }.join("\n")
+          server_message = "FAIL: #{server_deploy.name}\n"
+          server_problems.each do |problem|
+            server_message += "** Script: #{problem.script_name}; Exit: #{problem.exit_code}; Exec time: #{problem.exec_time} sec\n"
+            server_message += problem.for_display(context).join("\n")
+          end
+          server_message
         end
       end
     end
@@ -131,10 +132,6 @@ module Scalr
 
     def log_sinks
       @log_sinks ||= Scalr::LogSinks.new(@servers.map &:log_sink)
-    end
-
-    def poller
-      @poller ||= Scalr::StatefulScriptPoller.new(@farm_id, @role.servers_running, 'TTMAppConfigAndLaunch')
     end
   end
 end

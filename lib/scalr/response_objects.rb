@@ -146,6 +146,10 @@ module Scalr
         obj
       end
 
+      def identifier
+        "DEPLOY #{id}-#{timestamp_formatted}"
+      end
+
       def message_trimmed
         message.gsub(/[\r\n]/, ' ').rstrip
       end
@@ -319,6 +323,10 @@ module Scalr
         self.class.show_items([self])
       end
 
+      def identifier
+        "SYSTEM #{server_id}-#{timestamp_formatted}"
+      end
+
       def matches_source(match_source)
         match_source && (match_source == 'all' || match_source == '*' || match_source == source || source.nil?)
       end
@@ -442,6 +450,10 @@ module Scalr
         !success?
       end
 
+      def identifier
+        "SCRIPT #{server_id}-#{script_name}-#{timestamp_formatted}"
+      end
+
       def script_matches(match_script)
         match_script && (match_script == 'all' || match_script == '*' || match_script == script_name)
       end
@@ -529,12 +541,12 @@ module Scalr
       end
 
       # does case-insensitive comparison to key
-      def key_equals?(other_name)
+      def name_equals?(other_name)
         name.downcase == other_name.downcase
       end
 
       # applies regex to key, case unmodified (key will always be in upper case though)
-      def key_matches?(pattern)
+      def name_matches?(pattern)
         name.match(pattern)
       end
 

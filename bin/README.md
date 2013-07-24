@@ -1,21 +1,44 @@
 # ttmscalr - a command-line tool for working with Scalr
 
-## Installing
+## Installing + Configuring
 
-* Clone git@github.com:thinkthroughmath/scalr.git
-* Add scalr/bin dir to your PATH
-* gem install main (you'll also need activesupport and ruby-hmac, but if you're in your apangea gem environment you'll likely already have these. if you use rvm gemsets, you'll need to install these gems in the gemsets in which you'd like to use ttmscalr)
-* Get your API credentials and put them in a file like it says below
+* Clone `git@github.com:thinkthroughmath/scalr.git`
+* Add `scalr/bin` dir to your `PATH` as in __Add to PATH__ below
+* Install dependencies:
+  * `gem install main`
+  * you'll also need `activesupport` and `ruby-hmac`, but if you're in
+  your apangea gem environment you'll likely already have these. if
+  you use rvm gemsets, you'll need to install these gems in the
+  gemsets in which you'd like to use ttmscalr)
 * Build and install the scalr gem:
-    * `gem build scalr.gemspec`
-    * `gem install ./scalr-0.2.3.gem`
-* Now you should be able to run ttmscalr farm:list
+  * `gem build scalr.gemspec`
+  * `gem install ./scalr-0.2.3.gem`
+* Get and configure API credentials as in __Scalr API credentials__ below
+* Now you should be able to run `ttmscalr farm:list`
 
-## Configuring
+### Add to PATH
 
-You need to tell Scalr your API credentials. Don't have these? Go get
-them -- Andre can create an account for you, and once you login click on
-your profile in the upper-right and choose 'API Access'.
+Add this directory to your PATH. For a one-off, assuming this repo is
+`~/Projects/TTM/scalr` you'd do:
+
+    $ export PATH=~/Projects/TTM/scalr/bin:$PATH
+
+For a more permanent solution you might have in your `~/.bashrc` or
+`~/.bash_profile` something like:
+
+
+    SCALR_HOME=~/Projects/TTM/scalr
+    NODE_HOME=~/tools/node/current
+    ...
+
+    export PATH=~/bin:$SCALR_HOME/bin:$NODE_HOME/bin
+
+### Scalr API credentials
+
+You need to tell Scalr your API credentials so you can exercise the API.
+Don't have these? Go get them -- Andre can create an account for you,
+and once you login click on your profile in the upper-right and choose
+'API Access'.
 
 You can tell Scalr your credentials in one of two ways:
 
@@ -40,6 +63,16 @@ The Scalr access credentials should be in the file like this:
 
 DO NOT ADD THIS FILE TO git! It's already in `.gitignore` so you
 shouldn't be able to do so accidentally in the scalr gem.
+
+### Test it out!
+
+To see if it's working run:
+
+    $ ttmscalr farm:list
+
+If you want to see the URL and response content:
+
+    $ ttmscalr farm:list --debug
 
 ## Quick intro
 
@@ -121,7 +154,7 @@ You can get details about a farm:
 To see what's going on with one of the servers you can SSH directly in. Run
 a command to do so and the tool will tell you how to get the private key:
 
-    $ ttmscalr ssh debug.1 -a review
+    $ ttmscalr ssh debug.1 -f review
 
     Expected key file (/home/cwinters/.ssh/FARM-15275.us-east-1.private.pem) does not exist.
     Here's how to fix it:
@@ -156,16 +189,16 @@ For example:
     PARAMETERS
       server (1 -> server)
           Server index to use with role, or "role.index" name (e.g., "rails.2")
-      --farm=farm, -a (0 ~> farm)
+      --farm=farm, -f (0 ~> farm)
           Farm containing role + server
       --role=[role], -r (0 ~> role)
           Role with server, required unless using role name with "server" arg
       --help, -h
 
     EXAMPLES
-      ttmscalr ssh rails.1 -a review
-      ttmscalr ssh sidekiq.2 -a production
-      ttmscalr ssh 12 -a production -r rails
+      ttmscalr ssh rails.1 -f review
+      ttmscalr ssh sidekiq.2 -f production
+      ttmscalr ssh 12 -f production -r rails
 
 The parameter description tells you (in a slightly obscure manner) whether it's
 required or not.
@@ -183,6 +216,14 @@ to 'Zoidberg' if you want by changing this line:
 to this:
 
     "15275": [ "Review", "ttm-review", "ttm-staging", "Zoidberg" ],
+
+It may happen that we add new aliases. To include them you can either:
+
+* delete the file (`~/.ttm_scalr_aliases.json`) and the next time you
+  run the script it'll regenerate the alias file for you, or
+* if you've customized the aliases you may want to modify them
+  yourself -- see `Scalr::TTMAliasReader` in `lib/scalr/ttm.rb` for
+  what we would generate
 
 ## Scalr commands: list
 

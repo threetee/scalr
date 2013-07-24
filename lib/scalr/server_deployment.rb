@@ -5,6 +5,11 @@ module Scalr
   # some of the logging we may only process instead of fetch-and-process
   # since the Scalr API doesn't let you
   class ServerDeployment
+
+    # if we poll this many times for logs and don't get any new ones, we'll
+    # try to expand our timeframe back to ensure we didn't miss any
+    MAX_POLLS_WITHOUT_CHANGE = 10
+
     attr_reader :log_sink, :name, :status
 
     def initialize(farm_id, role, server)
@@ -15,6 +20,7 @@ module Scalr
       @status = 'NOT EXECUTED'
       @log_sink = Scalr::LogSink.new(@name)
       @last_seen = Time.now
+      @scans_without_change = 0
     end
 
     def completed?; @status == 'completed' end
@@ -41,7 +47,6 @@ module Scalr
       end
     end
 
-    # TODO: take the raw failures and categorize them into an object
     def failures
       @log_sink.failures.map{|failure| Scalr::ServerFailure.new(@server, failure)}
     end
@@ -68,16 +73,25 @@ module Scalr
         log_caller = Scalr::Caller.new(log_action)
         response = log_caller.invoke(farm_id: @farm_id, server_id: @server.id)
         if response && response.success?
-          response.content.
+          changes = response.content.
               find_all {|log_item| log_item.after?(@last_seen)}.
-              each {|log_item| add_log(log_item)}
+              map {|log_item| add_log(log_item)}.
+              inject(0) {|sum, log_added| sum + log_added}
+          @scans_without_change = changes > 0 ? 0 : @scans_without_change + 1
         end
       end
 
-      @last_seen = Time.now
+      # if there have been too many scans without a change, reset the filter time
+      # to ensure we didn't miss anything
+      if @scans_without_change > MAX_POLLS_WITHOUT_CHANGE
+        @last_seen = @log_sink.start_time
+        @scans_without_change = 0
+      else
+        @last_seen = Time.now
+      end
 
       # we found the last script, do any analysis here... (or in the log, or in the sink)
-      if script_log = @log_sink.config_and_launch_script
+      if script_log = @log_sink.end_of_deployment_script
         if script_log.success?
           @status = 'completed'
         else
