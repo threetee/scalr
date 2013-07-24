@@ -1,15 +1,37 @@
 # ttmscalr - a command-line tool for working with Scalr
 
-## Configuring
+## Installing + Configuring
 
-### Dependencies
+* Clone `git@github.com:thinkthroughmath/scalr.git`
+* Add `scalr/bin` dir to your `PATH` as in __Add to PATH__ below
+* Install dependencies:
+  * `gem install main`
+  * you'll also need `activesupport` and `ruby-hmac`, but if you're in
+  your apangea gem environment you'll likely already have these. if
+  you use rvm gemsets, you'll need to install these gems in the
+  gemsets in which you'd like to use ttmscalr)
+* Build and install the scalr gem:
+  * `gem build scalr.gemspec`
+  * `gem install ./scalr-0.2.3.gem`
+* Get and configure API credentials as in __Scalr API credentials__ below
+* Now you should be able to run `ttmscalr farm:list`
 
-The original version of `scalr` requires __ActiveSupport__, and we added
-a dependency on __main__. Both are in the `.gemspec` file but you can
-install manually:
+### Add to PATH
 
-    $ gem install main
-    $ gem install activesupport
+Add this directory to your PATH. For a one-off, assuming this repo is
+`~/Projects/TTM/scalr` you'd do:
+
+    $ export PATH=~/Projects/TTM/scalr/bin:$PATH
+
+For a more permanent solution you might have in your `~/.bashrc` or
+`~/.bash_profile` something like:
+
+
+    SCALR_HOME=~/Projects/TTM/scalr
+    NODE_HOME=~/tools/node/current
+    ...
+
+    export PATH=~/bin:$SCALR_HOME/bin:$NODE_HOME/bin
 
 ### Scalr API credentials
 
@@ -41,23 +63,6 @@ The Scalr access credentials should be in the file like this:
 
 DO NOT ADD THIS FILE TO git! It's already in `.gitignore` so you
 shouldn't be able to do so accidentally in the scalr gem.
-
-### Add to PATH
-
-Add this directory to your PATH. For a one-off, assuming this repo is
-`~/Projects/TTM/scalr` you'd do:
-
-    $ export PATH=~/Projects/TTM/scalr/bin:$PATH
-
-For a more permanent solution you might have in your `~/.bashrc` or
-`~/.bash_profile` something like:
-
-
-    SCALR_HOME=~/Projects/TTM/scalr
-    NODE_HOME=~/tools/node/current
-    ...
-
-    export PATH=~/bin:$SCALR_HOME/bin:$NODE_HOME/bin
 
 ### Test it out!
 
@@ -91,7 +96,7 @@ See more about them below.
 
 You can get details about a farm:
 
-    $ ttmscalr farm -f review
+    $ ttmscalr farm review
     FARM: 15275 (aliases: review, ttm-review, ttm-staging)
     ========================================
     ROLE: RailsAppServer (our aliases: web, rails)
