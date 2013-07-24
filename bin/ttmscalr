@@ -14,16 +14,18 @@ require 'scalr/deployer'
 require 'scalr/poller'
 require 'scalr/ssher'
 
+def script_name
+  File.basename($0)
+end
+
 unless Scalr.read_access_info
   puts <<-CONF
   CONFIGURATION ERROR: You do not have available Scalr access credentials. Please
   read 'Scalr API credentials' in #{bin_path}/README.md.
+
+  Called with: #{script_name} #{ARGV.join(' ')}
   CONF
   Process::exit(1)
-end
-
-def script_name
-  File.basename($0)
 end
 
 def generic_error(response)
