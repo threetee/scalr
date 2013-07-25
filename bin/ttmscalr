@@ -86,7 +86,7 @@ def script_poll(options)
 
   exec_ok = logs.find_all {|log_item| log_item.success?}
   unless exec_ok.empty?
-    puts "OK - #{options[:success]} (#{exec_ok.length} of #{logs.length} servers)"
+    puts "OK - #{options[:success]} (#{exec_ok.length} of #{servers.length} servers)"
   end
   return if exec_ok.length == logs.length
 
@@ -262,11 +262,11 @@ Main {
     end
   end
 
-  mode 'reset:hard' do
-    description 'Execute a hard reset on a role without doing a full deploy'
+  mode 'restart' do
+    description 'Execute a restart (aka "hard reset") on a role without doing a full deploy'
 
-    examples "$ #{script_name} reset rails -f production",
-             "$ #{script_name} reset all -f review"
+    examples "$ #{script_name} restart rails -f production",
+             "$ #{script_name} restart all -f review"
 
     argument 'role' do
       description 'Role to reset, "all" to reset all non-database roles'
