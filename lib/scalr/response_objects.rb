@@ -161,6 +161,11 @@ module Scalr
 
     class FarmRole < StructWithOptions.new(:id, :name, :role_id, :platform, :category, :cloud_location,
                                            :is_scaling, :scaling_properties, :platform_properties, :servers)
+      def self.by_id(roles, id_to_find)
+        return nil unless id_to_find
+        roles.find {|role| role.id.to_s == id_to_find.to_s}
+      end
+
       def self.components
         {
             scalingproperties: {name: :scaling_properties, clazz: Scalr::ResponseObject::Scaling},
@@ -499,8 +504,17 @@ module Scalr
         end
       end
 
+      def name=(name)
+        @name = name
+      end
+
+      # get the current assigned name, or generate and assign a new one of the format
+      # 'role_name.index' if you provide a role name
       def name(role_name = nil)
-        role_name.nil? ? "##{index}" : "#{role_name}.#{index}"
+        if role_name
+          @name = "#{role_name}.#{index}"
+        end
+        @name || "##{index}"
       end
 
       def running?

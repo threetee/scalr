@@ -56,6 +56,50 @@ def logging_options(main)
   end
 end
 
+# fetch the role(s) we'll execute in so we can count servers + resolve server IDs
+def fetch_role_for_script(options, role_specification = nil)
+  role_response = invoke(:farm_get_details, farm_id: options[:farm_id])
+  roles = []
+  if role_specification.nil? && options[:farm_role_id]
+    roles << Scalr::ResponseObject::FarmRole.by_id(role_response.content, options[:farm_role_id])
+  elsif role_specification.nil?
+    raise 'Cannot fetch role(s) for script execution, no role provided in specification or options.'
+  elsif role_specification.strip == 'all'
+    roles = role_response.content.reject {|role| role.name.match(/PGSQL/)}
+  else
+    role_options = Scalr::Caller.collect_options(params, [:farm_role_id])
+    roles << Scalr::ResponseObject::FarmRole.by_id(role_response.content, role_options[:farm_role_id])
+  end
+  roles.compact!
+  raise 'Cannot determine role script executes in - weird!' if roles.empty?
+  roles
+end
+
+def script_poll(options)
+  servers = options[:servers] || options[:role].servers_running
+  script_name = options[:script_name]
+  script_time = options[:script_time]
+
+  logs = Scalr::Poller.
+      new(options[:farm_id], servers).
+      script_logs(script_name, script_time, options[:max_polls])
+
+  exec_ok = logs.find_all {|log_item| log_item.success?}
+  unless exec_ok.empty?
+    puts "OK - #{options[:success]} (#{exec_ok.length} of #{logs.length} servers)"
+  end
+  return if exec_ok.length == logs.length
+
+  exec_fail = logs.find_all {|log_item| log_item.failure?}
+  puts "FAIL (#{exec_fail.length} of #{logs.length} servers)."
+  exec_fail.each do |log_item|
+    server = servers.find {|server| server.id == log_item.server_id}
+    server_name = options[:role_name] ? server.name(options[:role_name]) : server.name
+    puts "#{server_name} => exit code: #{log_item.exit_code}"
+    puts log_item.message, "\n"
+  end
+end
+
 def dispatch(action_name, params)
   Scalr::Caller.new(action_name).dispatch(params)
 end
@@ -136,39 +180,16 @@ Main {
 
     def run
       options = Scalr::Caller.collect_options(params, [:farm_id, :farm_role_id, :script_id, :timeout])
-
-      role_response = invoke(:farm_get_details, farm_id: options[:farm_id])
-      exec_role = role_response.content.find {|role| role.id.to_s == options[:farm_role_id].to_s}
-      raise 'Cannot determine role script executes in - weird!' unless exec_role
-
+      exec_role = fetch_role_for_script(options).first
       options[:config_variables] = {my_task: 'db_migrate'}
-
       script_time = Time.now
-
-      puts "Executing script with options: #{options.inspect}"
       response = invoke(:script_execute, options)
       return if generic_error(response)
 
       puts 'Script executed; polling for logs...'
-
-      logs = Scalr::Poller.
-          new(options[:farm_id], exec_role.servers_running).
-          script_logs(params['script'].value, script_time, 50)
-
-      exec_ok = logs.find_all {|log_item| log_item.success?}
-      unless exec_ok.empty?
-        puts 'OK - Migration complete.'
-      end
-      return if exec_ok.length == logs.length
-
-      exec_fail = logs.find_all {|log_item| log_item.failure?}
-      puts "FAIL (#{exec_fail.length} of #{logs.length} servers)."
-      exec_fail.each do |log_item|
-        server = exec_role.find_server(log_item.server_id)
-        server_display = server.nil? ? log_item.server_id : "#{role_name}.#{server.index}"
-        puts "#{server_display} => exit code: #{log_item.exit_code}"
-        puts log_item.message, "\n"
-      end
+      script_poll(role: exec_role.servers_running, script_name: params['script'].value,
+                  script_time: script_time, farm_id: options[:farm_id],
+                  success: 'Migration complete.', max_polls: 50)
     end
   end
 
@@ -231,6 +252,61 @@ Main {
     end
   end
 
+  mode 'reset:hard' do
+    description 'Execute a hard reset on a role without doing a full deploy'
+
+    examples "$ #{script_name} reset rails -f production",
+             "$ #{script_name} reset all -f review"
+
+    argument 'role' do
+      description 'Role to reset, "all" to reset all non-database roles'
+    end
+
+    option 'farm, -f' do
+      argument :required
+      description 'Farm with role to reset'
+    end
+
+    option 'script' do
+      description 'Script to execute (defaults to "TTMAppConfigAndLaunch", should not need to change)'
+      default 'TTMAppConfigAndLaunch'
+    end
+
+    option 'timeout' do
+      description 'Timeout in seconds (defaults to 1200)'
+      default '1200'
+    end
+
+    def run
+      print 'ARE YOU SURE YOU WANT TO RESTART SERVICES? (yes to confirm) '
+      if $stdin.gets.downcase !~ /yes/
+        puts '...as you wish. Good day!'
+        Process::exit(1)
+      end
+
+      options = Scalr::Caller.collect_options(params, [:farm_id, :script_id, :timeout])
+      roles = fetch_role_for_script(options, params['role'].value)
+      options[:config_variables] = {MyTask: 'HardReset'}
+      script_time = Time.now
+      execution_errors = []
+      puts "Executing reset for #{roles.length == 1 ? 'role' : 'roles'}: " +
+           roles.map {|role| Scalr.first_alias('role', role.name)}.join(', ')
+      roles.each do |role|
+        response = invoke(:script_execute, options.merge(farm_role_id: role.id))
+        execution_errors << role if generic_error(response)
+      end
+
+      all_servers = roles.flat_map do |role|
+        role.servers_running.each {|server| server.name = "#{Scalr.first_alias('role', role.name)}.#{server.index}"}
+      end
+
+      puts "Script executed... polling for logs from #{all_servers.length} servers."
+      script_poll(servers: all_servers, script_name: params['script'].value,
+                  script_time: script_time, farm_id: options[:farm_id],
+                  success: 'Hard reset successful', max_polls: 50)
+    end
+  end
+
   mode 'task' do
     argument 'task' do
       description 'ID of deployment task (use "deploy:tasks" + farm and role to lookup)'
@@ -282,40 +358,16 @@ Main {
 
     def run
       options = Scalr::Caller.collect_options(params, [:farm_id, :farm_role_id, :script_id])
-
-      # fetch the role we'll execute in so we can count servers + resolve server IDs
-      role_response = invoke(:farm_get_details, farm_id: options[:farm_id])
-      exec_role = role_response.content.find {|role| role.id.to_s == options[:farm_role_id].to_s}
-      raise 'Cannot determine role script executes in - weird!' unless exec_role
-
+      exec_role = fetch_role_for_script(options)
       options[:config_variables] = {on_or_off: params['mode'].value}
-
       script_time = Time.now
       response = invoke(:script_execute, options)
       return if generic_error(response)
 
       puts "Script executed... polling for logs from #{exec_role.servers_running.length} servers."
-
-      logs = Scalr::Poller.
-               new(options[:farm_id], exec_role.servers_running).
-               script_logs(params['script'].value, script_time)
-
-      exec_ok = logs.find_all {|log_item| log_item.success?}
-      unless exec_ok.empty?
-        puts "OK - Maintenance: #{params['mode'].value} (#{exec_ok.length} of #{logs.length} servers)"
-      end
-      return if exec_ok.length == logs.length
-
-      role_name = params['role'].value # show what the user gave us...
-
-      exec_fail = logs.find_all {|log_item| log_item.failure?}
-      puts "FAIL (#{exec_fail.length} of #{logs.length} servers)."
-      exec_fail.each do |log_item|
-        server = exec_role.find_server(log_item.server_id)
-        server_display = server.nil? ? log_item.server_id : "#{role_name}.#{server.index}"
-        puts "#{server_display} => exit code: #{log_item.exit_code}"
-        puts log_item.message, "\n"
-      end
+      script_poll(role: exec_role, role_name: params['role'].value, script_name: params['script'].value,
+                  script_time: script_time, farm_id: options[:farm_id],
+                  success: "Maintenance: #{params['mode'].value}")
     end
   end
 
