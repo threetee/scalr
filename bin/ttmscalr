@@ -145,6 +145,9 @@ Main {
       argument :optional
       description 'Path to which the application will be deployed (rarely changes)'
     end
+    option 'certain' do
+      description 'true: Yes, I am certain that I have pushed to the appropriate repo'
+    end
     option 'verbose' do
       description 'false (default): display number of servers remaining with every poll; true: display data as we poll'
     end
@@ -152,6 +155,13 @@ Main {
     def run
       options = Scalr::Caller.collect_options(params, [:farm_id, :application_id, :remote_path])
       options[:verbose] = params['verbose'].value
+      unless params['certain'].value
+        puts "Are you SURE you pushed to the AWS #{params['application'].value} repo?"
+        print "Waiting a few seconds to jog your memory. Ctrl-C if you're not sure! "
+        5.times {sleep(1); print '.'}
+        puts "OK, let's go!"
+      end
+
       Scalr::Deployer.new(options).execute
     end
   end
