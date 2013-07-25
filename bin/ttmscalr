@@ -296,7 +296,7 @@ Main {
 
       options = Scalr::Caller.collect_options(params, [:farm_id, :script_id, :timeout])
       roles = fetch_role_for_script(options, params['role'].value)
-      options[:config_variables] = {MyTask: 'HardReset'}
+      options[:config_variables] = {myTask: 'HardReset'}
       script_time = Time.now
       execution_errors = []
       puts "Executing reset for #{roles.length == 1 ? 'role' : 'roles'}: " +
