@@ -495,9 +495,12 @@ module Scalr
                             "%#{index_width}s - %-{status} - Uptime %{uptime} - %s")
         sorted = servers.sort_by {|info| info.index}
         sorted.map do |server|
-          server_name = role_name.nil? ? "##{server.index}" : "#{role_name}.#{server.index}"
-          sprintf(pat, server_name, server.status, server.uptime, server.platform_properties.to_s)
+          sprintf(pat, server.name(role_name), server.status, server.uptime, server.platform_properties.to_s)
         end
+      end
+
+      def name(role_name = nil)
+        role_name.nil? ? "##{index}" : "#{role_name}.#{index}"
       end
 
       def running?
