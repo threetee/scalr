@@ -661,11 +661,15 @@ Main {
         raise 'Must provide at least one key=value pair'
       end
       pairs.each do |pair|
-        response = invoke(:global_variable_set, options.merge(param_name: pair.name, param_value: pair.value))
-        if response.success?
-          puts "OK #{pair.to_s}"
+        if pair.name_matches?(/^TTM/)
+          response = invoke(:global_variable_set, options.merge(param_name: pair.name, param_value: pair.value))
+          if response.success?
+            puts "OK #{pair.to_s}"
+          else
+            puts "FAIL #{pair.to_s} => #{response.error}"
+          end
         else
-          puts "FAIL #{pair.to_s} => #{response.error}"
+          puts "SKIP #{pair.to_s} - name does not start with 'TTM'"
         end
       end
     end
