@@ -692,6 +692,28 @@ Main {
     end
   end
 
+  mode 'run' do
+    description 'Generate SSH command to execute any command a farm.'
+
+    examples "#{script_name} run -f review -c \"rails console\""
+
+    option 'farm, -f' do
+      argument :required
+      description 'Farm containing role + server'
+    end
+
+    option 'command, -c' do
+      argument :required
+      description 'Command to execute on the remote server'
+    end
+
+    def run
+      params['server'] = Value.new('debug.1')
+      command = params['command'].value
+      Scalr::Ssher.new(params).execute("-t \"source /etc/profile.d/TTM.ENV.sh; cd /var/www; #{command} \"")
+    end
+  end
+
   mode 'psql' do
     description 'Connect to a Scalr database via psql command line.'
 
