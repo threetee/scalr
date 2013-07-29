@@ -20,10 +20,11 @@ Gem::Specification.new do |s|
   s.description = "Scalr is a cloud infrastructure management provider. This gem is for interfacing with the Scalr.net API to obtain information about your instances and farms."
 
   s.required_rubygems_version = ">= 1.3.7"
+  s.executables      = ["ttmscalr"]
 
   s.add_dependency("activesupport", [">= 0"])
   s.add_dependency('main', ['>= 5.2.0'])
 
-  s.files        = Dir.glob("lib/**/*") + %w(README.markdown)
+  s.files        = Dir.glob("bin/**/*") + Dir.glob("lib/**/*") + %w(README.markdown)
   s.require_path = 'lib'
 end
