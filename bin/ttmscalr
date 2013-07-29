@@ -169,7 +169,7 @@ Main {
   mode 'deploy:migrate' do
     description 'Run db:migrate on the given farm'
 
-    argument 'farm' do
+    argument 'farm, -f' do
       description 'Farm to run db:migrate on'
     end
     option 'role, -r' do
