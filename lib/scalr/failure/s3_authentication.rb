@@ -1,3 +1,5 @@
+require 'scalr/server_failure'
+
 module Scalr::Failure
   class S3Authentication < BaseFailure
     def description(context=nil)
@@ -10,8 +12,6 @@ module Scalr::Failure
               map &:to_s
         end
       end
-
-
       <<-DESC.gsub(/^\s{8}/, '')
         This occurs when we copy static assets to S3 for it to serve. To fix the problem
         check the validity of these Scalr configuration entries:
@@ -27,6 +27,8 @@ module Scalr::Failure
     def pattern
       /AWS Access Key Id you provided does not exist in our records/
     end
+
+    Scalr::ServerFailure.add_failure_type(self)
   end
 end
 
