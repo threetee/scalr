@@ -19,6 +19,7 @@ module Scalr
     end
 
     def script_logs(script_name, script_time, max_polls = MAX_POLLS)
+      max_polls ||= MAX_POLLS
       script_log_options = {farm_id: @farm_id}
 
       count = 1
