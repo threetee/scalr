@@ -197,7 +197,7 @@ Main {
       return if generic_error(response)
 
       puts 'Script executed; polling for logs...'
-      script_poll(role: exec_role.servers_running, script_name: params['script'].value,
+      script_poll(servers: exec_role.servers_running, script_name: params['script'].value,
                   script_time: script_time, farm_id: options[:farm_id],
                   success: 'Migration complete.', max_polls: 50)
     end
@@ -368,14 +368,14 @@ Main {
 
     def run
       options = Scalr::Caller.collect_options(params, [:farm_id, :farm_role_id, :script_id])
-      exec_role = fetch_role_for_script(options)
+      exec_role = fetch_role_for_script(options).first
       options[:config_variables] = {on_or_off: params['mode'].value}
       script_time = Time.now
       response = invoke(:script_execute, options)
       return if generic_error(response)
 
       puts "Script executed... polling for logs from #{exec_role.servers_running.length} servers."
-      script_poll(role: exec_role, role_name: params['role'].value, script_name: params['script'].value,
+      script_poll(servers: exec_role.servers_running, role_name: params['role'].value, script_name: params['script'].value,
                   script_time: script_time, farm_id: options[:farm_id],
                   success: "Maintenance: #{params['mode'].value}")
     end
