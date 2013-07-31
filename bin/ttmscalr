@@ -146,7 +146,7 @@ Main {
       description 'Path to which the application will be deployed (rarely changes)'
     end
     option 'certain' do
-      description 'true: Yes, I am certain that I have pushed to the appropriate repo'
+      description 'true: Yes, I am certain that I have pushed to the appropriate repo; false (default): No, I am not certain'
     end
     option 'verbose' do
       description 'false (default): display number of servers remaining with every poll; true: display data as we poll'
@@ -331,7 +331,7 @@ Main {
       response = dispatch(:dm_deployment_task_get_log, params)
       return if generic_error(response)
 
-      if response.value[:totalrecords].to_i == 0
+      if response.total_records == 0
         puts 'No log records'
       else
         response.content.each do |log_item|
@@ -428,7 +428,7 @@ Main {
       response = dispatch(:logs_list, params)
       return if generic_error(response)
 
-      if response.value[:totalrecords].to_i == 0
+      if response.total_records == 0
         puts 'No log records'
       else
         puts Scalr::ResponseObject::LogItem.

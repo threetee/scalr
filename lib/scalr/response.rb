@@ -9,6 +9,7 @@ module Scalr
     def initialize(response, data, request_metadata, request_inputs = {})
       @code = response.code
       @message = response.message
+      @top_level_name = (request_metadata[:name].downcase + 'response').to_sym
       if successful_request?
         @value = parse(data)
         if success?
@@ -27,11 +28,18 @@ module Scalr
     def success?
       successful_request? && @value[:error].nil?
     end
-    
+
     def failed?
       !success?
     end
-    
+
+    # return -1 if no 'totalrecords' entry exists in the top-level return value, or
+    # the value of that if it does exist
+    def total_records
+      top = @value[@top_level_name]
+      top.has_key?(:totalrecords) ? top[:totalrecords] : -1
+    end
+
 private
     
     def parse(data)
@@ -43,8 +51,7 @@ private
       return hash unless request_metadata[:outputs]
       output_path = request_metadata[:outputs][:path]
       keys = output_path.split(/[@\/]/)
-      top_element = (request_metadata[:name].downcase + 'response').to_sym
-      current_value = hash[top_element]
+      current_value = hash[@top_level_name]
       transaction_id = current_value[:transactionid]
       keys.each do |key|
         next if current_value.nil? # don't keep descending if parent is nil
@@ -66,8 +73,6 @@ private
       else
         [current_value, transaction_id]
       end
-
-
     end
   end
 end
