@@ -61,10 +61,11 @@ module Scalr
 
     def refresh
       return false if done?
-      previous_status = @task.status
       response = task_refresher.invoke(deployment_task_id: @task.id)
       @task.status = response.content if response
-      previous_status == @task.status
+      changed = @status != @task.status
+      @status = @task.status if changed
+      changed
     end
 
     def scan_logs

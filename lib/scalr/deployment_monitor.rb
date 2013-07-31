@@ -30,9 +30,8 @@ module Scalr
     def poll
       unless done?
         accumulate_logs
-        if refresh_status
-          puts "  #{name}: #{status} - #{servers_status.join(' ')}" if @verbose
-        end
+        refresh_status
+        puts "  #{name}: #{status} [#{servers_status.join('; ')}]" if @verbose
       end
     end
 
