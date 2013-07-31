@@ -18,10 +18,11 @@ module Scalr
   end
 
   class LogSink
-    attr_accessor :id, :start_time
+    attr_accessor :failures, :id, :start_time
 
     def initialize(id)
       @id = id
+      @failures = []
       @logs = []
       @start_time = Time.now
     end
@@ -30,6 +31,7 @@ module Scalr
       existing = @logs.any? {|log| log_to_add.identifier == log.identifier}
       unless existing
         @logs << log_to_add
+        @failures += analyze_log_for_failures(log_to_add)
       end
       existing ? 0 : 1
     end
@@ -55,49 +57,18 @@ module Scalr
       logs_by_class(Scalr::ResponseObject::LogItem)
     end
 
+    def task_logs
+      logs_by_class(Scalr::ResponseObject::DeploymentTaskLogItem)
+    end
+
   private
+
+    def analyze_log_for_failures(log)
+      []
+    end
 
     def logs_by_class(clazz)
       @logs.find_all {|log| log.instance_of? clazz}
-    end
-  end
-
-  require 'delegate'
-
-  class ServerFailure < ::SimpleDelegator
-
-    # 'sort' isa hack so that base_failure will be require'd first
-    Dir[File.join(File.dirname(__FILE__), 'failure', '*.rb')].sort.each {|file| require file}
-
-    attr_reader :failures, :server
-
-    PATTERNS = [
-        Scalr::Failure::S3Authentication
-    ]
-
-    def initialize(server, log_item)
-      super(log_item)
-      @server = server
-      @failures = categorize(log_item)
-    end
-
-    def categorize(log_item)
-      matches = PATTERNS.map {|pattern_clazz|
-        pattern = pattern_clazz.new(log_item)
-        pattern.matches? ? pattern : nil
-      }.compact
-      matches.empty? ? [Scalr::Failure::Generic.new(log_item)] : matches
-    end
-
-    # generate the actual error suitable for display
-    # ++context++ a hash of data that may be useful to fetch additional information
-    # from scalr -- e.g., :farm_id so we can fetch existing configuration values
-    def for_display(context = {})
-      my_context = context.merge(server: @server)
-      @failures.map do |failure|
-        log_snippets = failure.error_for_display(my_context)
-        [failure.name, failure.description(my_context), log_snippets].join("\n")
-      end
     end
   end
 end

@@ -70,17 +70,8 @@ module Scalr
 
     def scan_logs
       return if done?
-      [:logs_list, :script_logs_list].each do |log_action|
-        log_caller = Scalr::Caller.new(log_action)
-        response = log_caller.invoke(farm_id: @farm_id, server_id: @server.id)
-        if response && response.success?
-          changes = response.content.
-              find_all {|log_item| log_item.after?(@last_seen)}.
-              map {|log_item| add_log(log_item)}.
-              inject(0) {|sum, log_added| sum + log_added}
-          @scans_without_change = changes > 0 ? 0 : @scans_without_change + 1
-        end
-      end
+
+      fetch_logs
 
       # if there have been too many scans without a change, reset the filter time
       # to ensure we didn't miss anything
@@ -105,5 +96,24 @@ module Scalr
       @task_refresher ||= Scalr::Caller.new(:dm_deployment_task_get_status)
     end
 
+  private
+    def fetch_logs
+      [:logs_list, :script_logs_list].each do |log_action|
+        log_caller = Scalr::Caller.new(log_action)
+        process_log_response(log_caller.invoke(farm_id: @farm_id, server_id: @server.id))
+      end
+
+      task_log_caller = Scalr::Caller.new(:dm_deployment_task_get_log)
+      process_log_response(task_log_caller.invoke(task_id: @task.id))
+    end
+  end
+
+  def process_log_response(response)
+    return unless response && response.success?
+    changes = response.content.
+        find_all {|log_item| log_item.after?(@last_seen)}.
+        map {|log_item| add_log(log_item)}.
+        inject(0) {|sum, log_added| sum + log_added}
+    @scans_without_change = changes > 0 ? 0 : @scans_without_change + 1
   end
 end
