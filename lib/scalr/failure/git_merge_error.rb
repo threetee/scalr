@@ -9,18 +9,16 @@ module Scalr::Failure
     def description(context)
       <<-DESC.gsub(/^ {8}/, '')
         The git repository on the server is out of date with the repository on github. Maybe
-        someone has been DOING IT LIVE? You should be able to fix it by either:
+        someone has been DOING IT LIVE? You should be able to fix it by fixing git:
 
-        1) Command-line:
           local-$ ttmscalr ssh #{context[:server].name} -f YOUR-FARM
           scalr-# cd /var/www
           scalr-# git reset HEAD --hard
           scalr-# exit
-          ---redeploying the app---
 
-        or
+        and then either redeploying the app via the command-line (which will do so for all 
+        roles and servers) or redeploying via the GUI:
 
-        2) GUI:
           - Open https://my.scalr.com/#/dm/tasks/view
           - Find the task with ID #{context[:task].id}; it should have status 'failed'
           - In that row, click the 'Actions' dropdown in the far right
