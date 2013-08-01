@@ -1,9 +1,13 @@
 require 'scalr/server_failure'
 
 module Scalr::Failure
-  class GitMergeError
+  class GitMergeError < BaseFailure
+    def self.pattern
+      /Your local changes to the following files would be overwritten by merge/
+    end
+
     def description(context)
-      <<-DESC.gsub()
+      <<-DESC.gsub(/^ {8}/, '')
         The git repository on the server is out of date with the repository on github. Maybe
         someone has been DOING IT LIVE? You should be able to fix it by either:
 
@@ -18,7 +22,7 @@ module Scalr::Failure
 
         2) GUI:
           - Open https://my.scalr.com/#/dm/tasks/view
-          - Find the task with ID #{context[:server].task.id}; it should have status 'failed'
+          - Find the task with ID #{context[:task].id}; it should have status 'failed'
           - In that row, click the 'Actions' dropdown in the far right
           - Click on 'Re-deploy'
       DESC
@@ -26,10 +30,6 @@ module Scalr::Failure
 
     def name
       'Git repository on scalr server out of date'
-    end
-
-    def pattern
-      /Your local changes to the following files would be overwritten by merge/
     end
 
     Scalr::ServerFailure.add_failure_type(self)

@@ -10,11 +10,11 @@ module Scalr
     # try to expand our timeframe back to ensure we didn't miss any
     MAX_POLLS_WITHOUT_CHANGE = 10
 
-    attr_reader :log_sink, :name, :status
+    attr_reader :log_sink, :name, :server, :status, :task
 
     def initialize(farm_id, role, server)
       role_alias = Scalr.first_alias('role', role.name) || role.name
-      @name = "#{role_alias}.#{server.index}"
+      server.name(role_alias)
       @farm_id = farm_id
       @server = server
       @status = 'NOT EXECUTED'
@@ -43,28 +43,28 @@ module Scalr
         @task   = task
         @status = task.status
       else
-        raise "Task already assigned to deployment! [Existing: #{@task.to_s}]"
+        raise "Task already assigned to deployment! [Existing: #{task.to_s}]"
       end
     end
 
     def failures
-      @log_sink.failures.map{|failure| Scalr::ServerFailure.new(@server, failure)}
+      @log_sink.failures.flat_map{|log_of_failure| Scalr::ServerFailure.new(self, log_of_failure)}
     end
 
     def id
-      @server.id
+      server.id
     end
 
     def missing_task?
-      @task.nil?
+      task.nil?
     end
 
     def refresh
       return false if done?
-      response = task_refresher.invoke(deployment_task_id: @task.id)
-      @task.status = response.content if response
-      changed = @status != @task.status
-      @status = @task.status if changed
+      response = task_refresher.invoke(deployment_task_id: task.id)
+      task.status = response.content if response
+      changed = @status != task.status
+      @status = task.status if changed
       changed
     end
 
@@ -100,20 +100,20 @@ module Scalr
     def fetch_logs
       [:logs_list, :script_logs_list].each do |log_action|
         log_caller = Scalr::Caller.new(log_action)
-        process_log_response(log_caller.invoke(farm_id: @farm_id, server_id: @server.id))
+        process_log_response(log_caller.invoke(farm_id: @farm_id, server_id: server.id))
       end
 
       task_log_caller = Scalr::Caller.new(:dm_deployment_task_get_log)
-      process_log_response(task_log_caller.invoke(task_id: @task.id))
+      process_log_response(task_log_caller.invoke(deployment_task_id: task.id))
     end
-  end
 
-  def process_log_response(response)
-    return unless response && response.success?
-    changes = response.content.
-        find_all {|log_item| log_item.after?(@last_seen)}.
-        map {|log_item| add_log(log_item)}.
-        inject(0) {|sum, log_added| sum + log_added}
-    @scans_without_change = changes > 0 ? 0 : @scans_without_change + 1
+    def process_log_response(response)
+      return unless response && response.success?
+      changes = response.content.
+          find_all {|log_item| log_item.after?(@last_seen)}.
+          map {|log_item| add_log(log_item)}.
+          inject(0) {|sum, log_added| sum + log_added}
+      @scans_without_change = changes > 0 ? 0 : @scans_without_change + 1
+    end
   end
 end

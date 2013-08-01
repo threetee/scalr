@@ -1,3 +1,5 @@
+require 'scalr/server_failure'
+
 module Scalr
   class LogSinks
     def initialize(sinks)
@@ -31,7 +33,7 @@ module Scalr
       existing = @logs.any? {|log| log_to_add.identifier == log.identifier}
       unless existing
         @logs << log_to_add
-        @failures += analyze_log_for_failures(log_to_add)
+        @failures << log_to_add if has_failures?(log_to_add)
       end
       existing ? 0 : 1
     end
@@ -43,10 +45,6 @@ module Scalr
     # retrieve the script that marks the end of a deployment
     def end_of_deployment_script
       scripting_logs.find {|log_item| log_item.script_name == 'TTMAppConfigAndLaunch'}
-    end
-
-    def failures
-      scripting_logs.find_all {|l| l.failure?}
     end
 
     def scripting_logs
@@ -63,8 +61,13 @@ module Scalr
 
   private
 
-    def analyze_log_for_failures(log)
-      []
+    # quick check to see if this log triggers any failures
+    def has_failures?(log)
+      if log.instance_of?(Scalr::ResponseObject::ScriptLogItem)
+        log.failure?
+      else
+        Scalr::ServerFailure.matches_any_failure?(log.message)
+      end
     end
 
     def logs_by_class(clazz)

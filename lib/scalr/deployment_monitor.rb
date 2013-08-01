@@ -24,7 +24,7 @@ module Scalr
       end
       @status = 'STARTED'
       assign_tasks(response.content)
-      show_servers if @verbose
+      puts "ROLE: #{@role.name}: #{@servers.length} servers" if @verbose
     end
 
     def poll
@@ -67,12 +67,7 @@ module Scalr
     end
 
     def servers_status
-      @servers.map &:to_s
-    end
-
-    def show_servers
-      puts "ROLE: #{@role.name}"
-      puts servers_status.join("\n")
+      @servers.group_by{|s| s.status}.map{|status, servers_in_status| "#{status}: #{servers_in_status.length}"}
     end
 
     def summaries
@@ -85,7 +80,7 @@ module Scalr
         else
           server_message = "FAIL: #{server_deploy.name}\n"
           server_problems.each do |problem|
-            server_message += "** Script: #{problem.script_name}; Exit: #{problem.exit_code}; Exec time: #{problem.exec_time} sec\n"
+            server_message += "** Type: #{problem.descriptive_type}; #{problem.headline_summary}\n"
             server_message += problem.for_display(context).join("\n")
           end
           server_message

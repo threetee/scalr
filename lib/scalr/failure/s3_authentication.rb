@@ -2,6 +2,10 @@ require 'scalr/server_failure'
 
 module Scalr::Failure
   class S3Authentication < BaseFailure
+    def self.pattern
+      /AWS Access Key Id you provided does not exist in our records/
+    end
+
     def description(context=nil)
       config_variables = ['Sorry! Cannot fetch config entries, no :farm_id available.']
       if context && context[:farm_id]
@@ -22,10 +26,6 @@ module Scalr::Failure
 
     def name
       'AWS authentication failed during asset precompile.'
-    end
-
-    def pattern
-      /AWS Access Key Id you provided does not exist in our records/
     end
 
     Scalr::ServerFailure.add_failure_type(self)

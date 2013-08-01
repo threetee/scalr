@@ -132,9 +132,6 @@ module Scalr
       def to_s
         "#{id}: #{status} [Server: #{server_id}]"
       end
-
-      # {:serverid=>"57f02c81-6020-408a-8125-eecffa838673", :deploymenttaskid=>"f81461e34ce3",
-      #  :farmroleid=>"53494", :remotepath=>"/var/www", :status=>"pending"}
     end
 
     class DeploymentTaskLogItem < StructWithOptions.new(:id, :message, :timestamp, :type)
@@ -144,6 +141,18 @@ module Scalr
           obj.timestamp = obj.parse_timestamp(obj.timestamp)
         end
         obj
+      end
+
+      def after?(time_to_check)
+        timestamp >= time_to_check
+      end
+
+      def descriptive_type
+        'Deployment task'
+      end
+
+      def headline_summary
+        "Task: #{id}; Type: #{type}"
       end
 
       def identifier
@@ -253,25 +262,6 @@ module Scalr
           "NO"
         end
       end
-
-      #{
-      # :id=>"53494", :roleid=>"53532", :name=>"RailsAppServer", :platform=>"ec2", :category=>"Base",
-      # :scalingproperties=>{:mininstances=>"1", :maxinstances=>"2"},
-      # :platformproperties=>{:instancetype=>"m1.large", :availabilityzone=>nil},
-      # :serverset=>{
-      #     :item=>[
-      #         {:serverid=>"3f1b372a-ac58-43c8-9821-051bca85f240", :externalip=>"54.242.223.213", :internalip=>"10.12.117.155",
-      #          :status=>"Terminated", :index=>"1", :scalarizrversion=>"0.18.2", :uptime=>"4160.08", :isdbmaster=>"0",
-      #          :platformproperties=>{:instancetype=>"m1.large", :availabilityzone=>"us-east-1c", :amiid=>"ami-cb087ba2", :instanceid=>"i-ee6b058d"}
-      #         },
-      #         {:serverid=>"57f02c81-6020-408a-8125-eecffa838673", :externalip=>"54.227.127.229", :internalip=>"10.83.45.160",
-      #          :status=>"Running", :index=>"1", :scalarizrversion=>"0.18.2", :uptime=>"60.12", :isdbmaster=>"0",
-      #          :platformproperties=>{:instancetype=>"m1.large", :availabilityzone=>"us-east-1c", :amiid=>"ami-febcc097", :instanceid=>"i-9944fff1"}
-      #         }
-      #     ]
-      # },
-      # :cloudlocation=>"us-east-1", :isscalingenabled=>"1", :scalingalgorithmset=>nil
-      #}
     end
 
     class FarmSummary < StructWithOptions.new(:comments, :id, :name, :status)
@@ -326,6 +316,14 @@ module Scalr
 
       def brief
         self.class.show_items([self])
+      end
+
+      def descriptive_type
+        'System'
+      end
+
+      def headline_summary
+        "Severity: #{severity}; Source: #{source}"
       end
 
       def identifier
@@ -393,8 +391,6 @@ module Scalr
       def date_formatted
         format_timestamp(self.date)
       end
-
-      # [{:revision=>"1", :date=>"2013-06-17 15:50:59", :configvariables=>{:item => [{:name => '...'}]}}
     end
 
     class ScriptSummary < StructWithOptions.new(:description, :id, :latest_revision, :name)
@@ -408,9 +404,6 @@ module Scalr
       def ttm?
         name.match(/^TTM/)
       end
-
-      # {:id=>"1", :name=>"SVN update",
-      #  :description=>"Update a working copy from SVN repository", :latestrevision=>"1"}
     end
 
     class ScriptLogItem < StructWithOptions.new(:event, :exec_time, :exit_code, :message, :script_name,
@@ -451,8 +444,16 @@ module Scalr
         self.class.show_items([self])
       end
 
+      def descriptive_type
+        'Scripting'
+      end
+
       def failure?
         !success?
+      end
+
+      def headline_summary
+        "Script: #{script_name}; Event: #{event}; Exit: #{exit_code}; Exec time: #{exec_time} sec"
       end
 
       def identifier
@@ -571,6 +572,5 @@ module Scalr
         "#{name}=#{value}"
       end
     end
-
   end
 end

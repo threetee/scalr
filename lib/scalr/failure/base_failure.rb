@@ -3,6 +3,10 @@ module Scalr::Failure
 
     DISPLAY_AROUND = 4
 
+    def self.pattern
+      nil
+    end
+
     attr_accessor :log_item
 
     def initialize(log_item)
@@ -21,7 +25,7 @@ module Scalr::Failure
       lines = log_item.message.split(/[\r\n]/)
       display_chunks = []
       lines.each_with_index do |line, index|
-        next unless line.match(pattern)
+        next unless line.match(self.class.pattern)
         display_chunks << (index-display_before..index+display_after).map {|line_index|
           line_index < 0 || line_index > lines.length ? nil : "#{line_index}: #{lines[line_index]}"
         }.compact.join("\n")
@@ -30,11 +34,12 @@ module Scalr::Failure
     end
 
     def matches?
-      ! log_item.message.match(pattern).nil?
+      ! log_item.message.match(self.class.pattern).nil?
     end
 
-    def pattern
-      /.+/
+    def type
+      log_item.descriptive_type
     end
+
   end
 end

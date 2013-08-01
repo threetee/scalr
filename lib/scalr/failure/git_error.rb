@@ -1,7 +1,12 @@
 require 'scalr/server_failure'
 
 module Scalr::Failure
-  class GitError
+  class GitError < BaseFailure
+
+    def self.pattern
+      /Git error/
+    end
+
     def description
       <<-DESC.gsub()
         We either had a problem checking out and syncing the TTM source
@@ -16,10 +21,6 @@ module Scalr::Failure
 
     def name
       'Problem with git'
-    end
-
-    def pattern
-      /Git error/
     end
 
     Scalr::ServerFailure.add_failure_type(self)

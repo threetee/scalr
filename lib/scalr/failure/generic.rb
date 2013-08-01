@@ -10,6 +10,10 @@ module Scalr::Failure
       log_item.message
     end
 
+    def matches?
+      true
+    end
+
     def name
       'Uncategorized failure'
     end
