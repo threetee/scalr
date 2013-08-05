@@ -232,7 +232,7 @@ module Scalr
       def filter_by_running(filter)
         matching = servers.find_all &filter
         if matching.length > 1
-          matching = matching.find {|server| server.running?}
+          matching = matching.find_all {|server| server.running?}
         end
         matching.empty? ? nil : matching.first
       end
