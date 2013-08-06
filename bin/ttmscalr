@@ -151,9 +151,12 @@ Main {
     option 'verbose' do
       description 'false (default): display number of servers remaining with every poll; true: display data as we poll'
     end
+    option 'hard' do
+      description 'false (default): do graceful restart on deploy, true: do hard restart on deploy'
+    end
 
     def run
-      options = Scalr::Caller.collect_options(params, [:farm_id, :application_id, :remote_path])
+      options = Scalr::Caller.collect_options(params, [:farm_id, :application_id, :remote_path, :hard])
       options[:verbose] = params['verbose'].value
       unless params['certain'].value
         puts "Are you SURE you pushed to the AWS #{params['application'].value} repo?"

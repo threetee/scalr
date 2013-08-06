@@ -21,6 +21,17 @@ module Scalr
       new(nil).collect_options(params, api_names)
     end
 
+    def self.variable_value(variable_name, options)
+      response = new(:global_variables_list).invoke(options)
+      if response && response.success?
+        matched = response.content.detect {|pair| pair.name_equals?(variable_name)}
+        matched.value
+      else
+        error = response.nil? ? '(unknown error, no response)' : response.error
+        raise "Failed to fetch variable #{variable_name}: #{error}"
+      end
+    end
+
     def initialize(action_name)
       @action_name  = action_name
       unless @action_name.nil? # hack!

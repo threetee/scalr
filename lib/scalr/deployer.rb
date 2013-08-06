@@ -12,6 +12,7 @@ module Scalr
       @application_id = options[:application_id]
       @remote_path    = options[:remote_path]
       @verbose        = options[:verbose]
+      @hard_restart   = options[:hard]
       @monitors       = []
     end
 
@@ -24,6 +25,8 @@ module Scalr
                         partial_options(application_id: @application_id,
                                         farm_id: @farm_id,
                                         remote_path: @remote_path)
+      flag_hard_restart if @hard_restart
+
       @monitors.each do |monitor|
         monitor.start(deploy_caller)
         @verbose && puts("...started monitor: #{monitor}")
@@ -82,6 +85,31 @@ module Scalr
                monitor.summaries.join("\n")
         end
       end
+    end
+
+  private
+    # the next time we need to read/write from/to redis move this into a separate object...
+    def flag_hard_restart
+      redis_path = `which redis-cli`.chomp
+      if redis_path.empty?
+        $stderr.puts 'SKIP: Cannot mark this deployment as a hard restart because "redis-cli" not available. ',
+                     'Once the deployment is complete you can do a manual hard restart with:',
+                     "   $ ttmscalr restart all -f #{@farm_id}"
+        return 'SKIP'
+      end
+      redis_url = URI.parse(Scalr::Caller.variable_value('TTM_REDIS_URL', farm_id: @farm_id))
+
+      # hardcoded, ignore the value in the URL b/c that's only valid within EC2
+      host =  'proxy2.openredis.com'
+
+      port = redis_url.port
+      password = redis_url.password
+
+      command = "-h #{host} -p #{port} -a #{password} SET SCALR-ADMIN:DEPLOY:HARD TRUE EX 300"
+      @verbose && puts("Marking deployment as hard restart with: #{redis_path} #{command}...")
+      result = `#{redis_path} #{command}`
+      @verbose && puts("...results: #{result}")
+      result # if it works this is 'OK'
     end
   end
 end
