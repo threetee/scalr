@@ -123,6 +123,34 @@ Main {
     validate {|value| Scalr.debug = $stderr if value; true} # sneaky use of validate, sorry...
   end
 
+  synopsis <<-SYN.gsub(/^ {4}/, '')
+    Available commands, use 'ttmscalr <command> --help' for more:
+      application:list - List available applications
+      config:get       - Get a farm's configuration key/value pairs, optionally restricting it to one
+      config:set       - Assign one or more configuration pairs to a farm
+      deploy           - Deploy an application
+      deploy:migrate   - Run a db:migrate for a deployed application on a farm
+      deploy:tasks     - List deployment tasks
+      exterminate      - Good times
+      farm             - List roles in a farm
+      farm:list        - List farms
+      farm:server      - Find out on which role a server lives within a farm
+      launch           - Launch a server within a farm 
+      log:script       - Show script logs
+      log:system       - Show system logs
+      maintenance      - Change a farm's maintenance status
+      psql             - Open a command-line shell to a database
+      rails_console    - Open a command-line console to a rails application
+      restart          - Do a hard restart of a role
+      run              - Run a command on a server in a farm
+      script           - Get details about a script (mostly version history)
+      script:list      - List available scripts
+      ssh              - Use SSH to get a console on a server
+      task             - Get information about a deployment task
+      terminate        - Terminate a server (a cure-all for sick dynos)
+      deploy:monitor   - [not done yet!] Monitor an existing deployment
+  SYN
+
   ########## Deployment
 
   mode 'deploy' do

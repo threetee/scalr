@@ -166,6 +166,18 @@ a command to do so and the tool will tell you how to get the private key:
       - execute: 'chmod 400 /home/cwinters/.ssh/FARM-15275.us-east-1.private.pem'
         (so ssh won't complain about permissive permissions)
 
+## Common tasks
+
+### Run a rake task
+
+Most farms have a `debug` role for this purpose. It has the same code
+as the others but doesn't run any active services. So to run a rake
+task on the 'production' farm do:
+
+    $ ttmscalr ssh debug.1 -f production
+    # cd /var/www
+    # bundle exec rake mytask
+
 ## Scalr commands: overview
 
 ### Getting help
