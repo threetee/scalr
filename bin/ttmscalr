@@ -123,6 +123,8 @@ Main {
     validate {|value| Scalr.debug = $stderr if value; true} # sneaky use of validate, sorry...
   end
 
+  # this replaces the built-in one which just lists all the commands in one long line, 
+  # but has the downside requiring manual updates when you add new modes
   synopsis <<-SYN.gsub(/^ {4}/, '')
     Available commands, use 'ttmscalr <command> --help' for more:
       application:list - List available applications
