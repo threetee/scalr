@@ -105,7 +105,7 @@ module Scalr
       port = redis_url.port
       password = redis_url.password
 
-      command = "-h #{host} -p #{port} -a #{password} SET SCALR-ADMIN:DEPLOY:HARD TRUE EX 300"
+      command = "-h #{host} -p #{port} -a #{password} SET SCALR-ADMIN:DEPLOY:HARD:#{@farm_id} TRUE EX 300"
       @verbose && puts("Marking deployment as hard restart with: #{redis_path} #{command}...")
       result = `#{redis_path} #{command}`
       @verbose && puts("...results: #{result}")
