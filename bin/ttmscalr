@@ -792,7 +792,7 @@ Main {
 
     argument 'db' do
       arity 1
-      description 'Database descriptor, one of: master, 1, 2, 3, 4, one, two, three, four; default: master'
+      description 'Database descriptor, one of: master, 1, 2, 3, 4, one, two, three, four, warehouse, etl; default: master'
       default 'master'
     end
 
@@ -837,6 +837,14 @@ Main {
       'TTM_DATABASE_URL'
     end
 
+    def url_warehouse
+      'TTM_WAREHOUSE_DATABASE_URL'
+    end
+
+    def url_etl
+      'TTM_ETL_DATABASE_URL'
+    end
+
     def url_shard(shard)
       "TTM_SHARD_#{shard}_URL"
     end
@@ -844,6 +852,8 @@ Main {
     def db_key(db)
       words = %w(ONE TWO THREE FOUR)
       return url_master if db == 'master'
+      return url_warehouse if db == 'warehouse'
+      return url_etl if db == 'etl'
       shard_count = db.to_i
       replacement = (1..4).include?(shard_count) ? words[shard_count - 1] : db.upcase
       url_shard(replacement)
