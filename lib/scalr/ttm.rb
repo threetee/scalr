@@ -47,7 +47,8 @@ module Scalr
                 "15331": ["Winters"],
                 "15596": ["RC"],
                 "15597": ["lab", "apangea"],
-                "15548": ["DW-production", "DW", "DW-prod", "dw-prod"]
+                "15548": ["DW-production", "DW", "DW-prod", "dw-prod"],
+                "15971": ["DW-staging", "DW-staging", "dw-staging"]
               },
               "role": {
                 "RailsAppServer" : ["rails", "web"],
@@ -63,7 +64,8 @@ module Scalr
                 "1204": ["review", "staging"],
                 "1242": ["lab", "apangea"],
                 "1243": ["rc", "ttm-rc"],
-                "1256": ["dw-prod", "dw-production"]
+                "1256": ["dw-prod", "dw-production"],
+                "1322": ["dw-staging"]
               }
             }
           DEFAULTALIASES
