@@ -57,7 +57,8 @@ module Scalr
                 "SystemWatcher"  : ["watcher"],
                 "Reports"        : ["reports"],
                 "DevDebug"       : ["debug"],
-                "PGSQL-9-2"      : ["pg", "pgsql", "psql"]
+                "PGSQL-9-2"      : ["pg", "pgsql", "psql"],
+                "DataLoad"       : ["dl", "dataload"]
               },
               "application": {
                 "968":  ["production", "master"],
