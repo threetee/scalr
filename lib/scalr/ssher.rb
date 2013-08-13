@@ -22,7 +22,8 @@ module Scalr
       farm_id = response.request_inputs['FarmID']
       key_path = File.expand_path("~/.ssh/FARM-#{farm_id}.#{server.platform_properties.availability_zone_brief}.private.pem")
       if File.exists?(key_path)
-        command = "ssh -i #{key_path} root@#{server.external_ip} #{remote_command}"
+        cmd = ( params.has_key?('cmd')? params['cmd'].value : "ssh" )
+        command = "#{cmd} -i #{key_path} root@#{server.external_ip} #{remote_command}"
         puts "Executing `#{command}`"
         exec command
       else

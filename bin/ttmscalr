@@ -767,6 +767,33 @@ Main {
     end
   end
 
+  mode 'sftp' do
+    description 'Generate SFTP command to connect to a specific server within a farm and role.'
+
+    examples "#{script_name} sftp rails.1 -f review",
+             "#{script_name} sftp sidekiq.2 -f production",
+             "#{script_name} sftp 12 -f production -r rails"
+
+    argument 'server' do
+      description 'Server index to use with role, or "role.index" name (e.g., "rails.2")'
+    end
+
+    option 'farm, -f' do
+      argument :required
+      description 'Farm containing role + server'
+    end
+
+    option 'role, -r' do
+      argument :optional
+      description 'Role with server, required unless using role name with "server" arg'
+    end
+
+    def run
+      params['cmd'] = Value.new('sftp')
+      Scalr::Ssher.new(params).execute
+    end
+  end
+
   class Value
     attr_reader :value
 
