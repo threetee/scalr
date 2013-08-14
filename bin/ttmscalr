@@ -147,6 +147,7 @@ Main {
       run              - Run a command on a server in a farm
       script           - Get details about a script (mostly version history)
       script:list      - List available scripts
+      sftp             - Use SFTP to connect to a server
       ssh              - Use SSH to get a console on a server
       task             - Get information about a deployment task
       terminate        - Terminate a server (a cure-all for sick dynos)
