@@ -637,17 +637,23 @@ Main {
     CONFIG
 
     examples "#{script_name} config:get -f review",
-             "#{script_name} config:get TTM_SHARD_ONE_URL -f production"
+             "#{script_name} config:get TTM_SHARD_ONE_URL -f production",
+             "#{script_name} config:get TTM_SIDEKIQ_CONCURRENCY -f production -r sidekiq"
 
     option 'farm, -f' do
       argument :required
       description 'Farm to get configuration from'
     end
 
+    option 'role, -r' do
+      argument :optional
+      description 'Role within the farm from which we will get configuration'
+    end
+
     argument 'key' do
       argument :optional
       description <<-KEY.gsub(/^\s+/, '')
-        Optional name of config key for which you want the value only;
+        Optional name of config key for which you want only the value;
         if not given we'll display all keys and values
       KEY
     end
@@ -669,15 +675,21 @@ Main {
   end
 
   mode 'config:set' do
-    description 'Assign a key/value configuration pair to a farm.'
+    description 'Assign a key/value configuration pair to a farm or role'
 
     examples "#{script_name} config:set TTM_FRUIT=ORANGE -f review",
              "#{script_name} config:set TTM_TIMEZONE_EXPERT=Carol TTM_REPORT_EXPERT=Greg -f review",
              "#{script_name} config:set my_config.txt -f production"
+             "#{script_name} config:set TTM_ANIMAL=unicorn -f production -r rails"
 
     option 'farm, -f' do
       argument :required
       description "Farm to which we'll assign configuration"
+    end
+
+    option 'role, -r' do
+      argument :optional
+      description "Role within the farm to which we'll assign configuration"
     end
 
     argument 'pair' do
@@ -689,7 +701,7 @@ Main {
     end
 
     def run
-      options = Scalr::Caller.collect_options(params, [:farm_id])
+      options = Scalr::Caller.collect_options(params, [:farm_id, :farm_role_id])
       pairs = Scalr::ResponseObject::Variable.read(params['pair'].values)
       if pairs.empty?
         raise 'Must provide at least one key=value pair'

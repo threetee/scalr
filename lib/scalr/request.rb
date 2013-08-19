@@ -183,11 +183,13 @@ module Scalr
       :global_variable_set => {
           :name => 'GlobalVariableSet', :version => V230,
           :inputs => {:farm_id => false, :farm_role_id => false, :param_name => true, :param_value => true},
+          :exclusive => {:farm_role_id => [:farm_id]},
           :outputs => { :path => 'result' }
       },
       :global_variables_list => {
           :name => 'GlobalVariablesList', :version => V200,
           :inputs => {:farm_id => false, :role_id => false, :farm_role_id => false, :server_id => false},
+          :exclusive => {:farm_role_id => [:farm_id]},
           :outputs => { :path => 'variableset@item', :object => Scalr::ResponseObject::Variable}
       },
       :logs_list => {
@@ -348,6 +350,14 @@ module Scalr
         ACTIONS[action][:inputs].each do |key, _|
           next unless input_hash[key].nil? && ACTIONS[action][:defaults] && ACTIONS[action][:defaults][key]
           input_hash[key] = ACTIONS[action][:defaults][key]
+        end
+
+        # remove exclusions
+        exclusions = ACTIONS[action][:exclusive] || {}
+        exclusions.each do |target, exclude_if|
+          if input_hash[target]
+            exclude_if.each {|to_remove| input_hash.delete(to_remove)}
+          end
         end
 
         # required item checking
