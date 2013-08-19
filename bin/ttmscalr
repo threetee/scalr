@@ -147,6 +147,7 @@ Main {
       run              - Run a command on a server in a farm
       script           - Get details about a script (mostly version history)
       script:list      - List available scripts
+      scp              - Copy a remote file to local machine with SCP
       sftp             - Use SFTP to connect to a server
       ssh              - Use SSH to get a console on a server
       task             - Get information about a deployment task
@@ -754,6 +755,57 @@ Main {
     end
   end
 
+
+  mode 'scp' do
+    description 'Brings a file from a remote server to your local machine via scp'
+
+    examples "#{script_name} scp rails.1 -f review -p ",
+             "#{script_name} scp sidekiq.2 -f production",
+             "#{script_name} scp 12 -f production -r rails"
+
+    argument 'server' do
+      description 'Server index to use with role, or "role.index" name (e.g., "rails.2")'
+    end
+
+    option 'farm, -f' do
+      argument :required
+      description 'Farm containing role + server'
+    end
+
+    option 'role, -r' do
+      argument :optional
+      description 'Role with server, required unless using role name with "server" arg'
+    end
+
+    option 'path, -p' do
+      argument :required
+      description 'Path to file to read on remote server'
+    end
+
+    option 'local, -l' do
+      argument :optional
+      description 'Path to file to write on local machine (will infer from -p if not given); we will refuse to run if this already exists'
+    end
+
+    def run
+      remote = params['path'].value
+      unless remote
+        $stderr.puts('Required argument: --path (-p) with path to remote file')
+        exit_status 1
+        return
+      end
+      local = params['local'].given? ? params['local'].value : File.basename(remote)
+      if File.exists?(local)
+        $stderr.puts("Local file already exists: #{local}")
+        exit_status 1
+        return
+      end
+      ssher = Scalr::Ssher.new(params)
+      ssher.execute_scp(remote, local)
+      exit_status ssher.exit_status
+    end
+  end
+
   mode 'ssh' do
     description 'Generate SSH command to connect to a specific server within a farm and role.'
 
@@ -776,7 +828,9 @@ Main {
     end
 
     def run
-      Scalr::Ssher.new(params).execute
+      ssher = Scalr::Ssher.new(params)
+      ssher.execute
+      exit_status ssher.exit_status
     end
   end
 
@@ -803,7 +857,9 @@ Main {
 
     def run
       params['cmd'] = Value.new('sftp')
-      Scalr::Ssher.new(params).execute
+      ssher = Scalr::Ssher.new(params)
+      ssher.execute
+      exit_status ssher.exit_status
     end
   end
 
@@ -827,7 +883,9 @@ Main {
 
     def run
       params['server'] = Value.new('debug.1')
-      Scalr::Ssher.new(params).execute('-t "source /etc/profile.d/TTM.ENV.sh; cd /var/www; rails console"')
+      ssher = Scalr::Ssher.new(params)
+      ssher.execute('-t "source /etc/profile.d/TTM.ENV.sh; cd /var/www; rails console"')
+      exit_status ssher.exit_status
     end
   end
 
@@ -849,7 +907,9 @@ Main {
     def run
       params['server'] = Value.new('debug.1')
       command = params['command'].value
-      Scalr::Ssher.new(params).execute("-t \"source /etc/profile.d/TTM.ENV.sh; cd /var/www; #{command} \"")
+      ssher = Scalr::Ssher.new(params)
+      ssher.execute("-t \"source /etc/profile.d/TTM.ENV.sh; cd /var/www; #{command} \"")
+      exit_status ssher.exit_status
     end
   end
 
