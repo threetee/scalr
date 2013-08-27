@@ -75,6 +75,11 @@ def fetch_role_for_script(options, role_specification = nil)
   roles
 end
 
+def fetch_server_on_farm(params, server_spec)
+  role_response = dispatch(:farm_get_details, params)
+  Scalr::ResponseObject::FarmRole.single_server(role_response.content, server_spec)
+end
+
 def script_poll(options)
   servers = options[:servers] || options[:role].servers_running
   script_name = options[:script_name]
@@ -298,18 +303,24 @@ Main {
   end
 
   mode 'restart' do
-    description 'Execute a restart (aka "hard reset") on a role without doing a full deploy'
+    description 'Execute a restart (aka "hard reset") on an individual server or an entire role, without doing a full deploy'
 
-    examples "$ #{script_name} restart rails -f production",
+    examples "$ #{script_name} restart rails.2 -f production",
+             "$ #{script_name} restart rails -f production",
              "$ #{script_name} restart all -f review"
 
-    argument 'role' do
-      description 'Role to reset, "all" to reset all non-database roles'
+    argument 'target' do
+      description 'Role or server to reset; use "all" to reset all non-database roles on a ' +
+                  'farm and {role}.{index} pattern for individual instance.'
     end
 
     option 'farm, -f' do
       argument :required
-      description 'Farm with role to reset'
+      description 'Farm with role or server to reset'
+    end
+
+    option 'server, -s' do
+      description "These are not the droids you're looking for"
     end
 
     option 'script' do
@@ -330,22 +341,37 @@ Main {
       end
 
       options = Scalr::Caller.collect_options(params, [:farm_id, :script_id, :timeout])
-      roles = fetch_role_for_script(options, params['role'].value)
       options[:config_variables] = {myTask: 'HardReset'}
+
       script_time = Time.now
       execution_errors = []
-      puts "Executing reset for #{roles.length == 1 ? 'role' : 'roles'}: " +
-           roles.map {|role| Scalr.first_alias('role', role.name)}.join(', ')
-      roles.each do |role|
-        response = invoke(:script_execute, options.merge(farm_role_id: role.id))
-        execution_errors << role if generic_error(response)
+
+      target = params['target'].value
+      if target.match(/^\w+\.\d+$/)
+        server = fetch_server_on_farm(params, target)
+        unless server
+          $stderr.puts("Cannot find server #{target} in farm #{params['farm'].value}")
+          return
+        end
+        response = invoke(:script_execute, options.merge(server_id: server.id))
+        return if generic_error(response)
+        all_servers = [server]
+      else
+        roles = fetch_role_for_script(options, target)
+        puts "Executing reset for #{roles.length == 1 ? 'role' : 'roles'}: " +
+                 roles.map {|role| Scalr.first_alias('role', role.name)}.join(', ')
+        roles.each do |role|
+          response = invoke(:script_execute, options.merge(farm_role_id: role.id))
+          execution_errors << role if generic_error(response)
+        end
+
+        all_servers = roles.flat_map do |role|
+          role.servers_running.each {|server| server.name = "#{Scalr.first_alias('role', role.name)}.#{server.index}"}
+        end
       end
 
-      all_servers = roles.flat_map do |role|
-        role.servers_running.each {|server| server.name = "#{Scalr.first_alias('role', role.name)}.#{server.index}"}
-      end
-
-      puts "Script executed... polling for logs from #{all_servers.length} servers."
+      server_count = all_servers.length == 1 ? 'a server' : "#{all_servers.length} servers"
+      puts "Script executed... polling for logs from #{server_count}."
       script_poll(servers: all_servers, script_name: params['script'].value,
                   script_time: script_time, farm_id: options[:farm_id],
                   success: 'Hard reset successful', max_polls: 50)
