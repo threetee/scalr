@@ -48,7 +48,9 @@ module Scalr
                 "15596": ["RC"],
                 "15597": ["lab", "apangea"],
                 "15548": ["DW-production", "DW", "DW-prod", "dw-prod"],
-                "15971": ["DW-staging", "DW-staging", "dw-staging"]
+                "15971": ["DW-staging", "DW-staging", "dw-staging"],
+                "15898": ["Dev"],
+                "15944": ["Jenkins"]
               },
               "role": {
                 "RailsAppServer" : ["rails", "web"],
@@ -58,7 +60,9 @@ module Scalr
                 "Reports"        : ["reports"],
                 "DevDebug"       : ["debug"],
                 "PGSQL-9-2"      : ["pg", "pgsql", "psql"],
-                "DataLoad"       : ["dl", "dataload"]
+                "DataLoad"       : ["dl", "dataload"],
+                "Jenkins"        : ["JenkinsM", "jenkins", "master"],
+                "JenkinsSlave"   : ["jenkinsslave", "slave"]
               },
               "application": {
                 "968":  ["production", "master"],
@@ -66,7 +70,8 @@ module Scalr
                 "1242": ["lab", "apangea"],
                 "1243": ["rc", "ttm-rc"],
                 "1256": ["dw-prod", "dw-production"],
-                "1322": ["dw-staging"]
+                "1322": ["dw-staging"],
+                "1306": ["dev", "dev"]
               }
             }
           DEFAULTALIASES
@@ -111,7 +116,7 @@ module Scalr
     [File.expand_path('../../../access_info', Pathname.new(__FILE__).realpath), # scalr gem
      File.expand_path('~/.ttm_scalr_access_info'),                              # home dir
      File.expand_path('./access_info')                                          # current dir
-    ].each do |path|     
+    ].each do |path|
       found = path if File.exists?(path)
     end
     found
