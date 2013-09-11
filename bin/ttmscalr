@@ -944,11 +944,15 @@ Main {
 
     examples "$ #{script_name} psql master -f production",
              "$ #{script_name} psql one -f production",
+             "$ #{script_name} psql master:slave -f production",
              "$ #{script_name} psql four -f production --url"
 
     argument 'db' do
       arity 1
-      description 'Database descriptor, one of: master, 1, 2, 3, 4, one, two, three, four, warehouse, etl; default: master'
+      description <<-DESC
+        Database descriptor, one of: master, 1, 2, 3, 4, one, two, three, four, warehouse, etl;
+        default: master; you can also append ":slave" to get to that database's slave
+      DESC
       default 'master'
     end
 
@@ -965,10 +969,13 @@ Main {
       response = dispatch(:global_variables_list, params)
       return if generic_error(response)
 
-      key = db_key(params['db'].value)
+      db_spec, is_slave = params['db'].value.split(':', 2)
+      key = db_key(db_spec)
+
       pair = response.content.find{|var| var.name_equals?(key)}
       if pair
         external_url = pair.value.gsub(/int/, 'ext')
+        external_url.gsub!(/master/, 'slave')  if is_slave
         command = params['url'].value ? external_url : "psql #{external_url}"
         puts "Executing `#{command}`"
         exec command
@@ -977,14 +984,14 @@ Main {
             find_all {|var| var.name_matches?(/^TTM.+URL$/)}.
             map{|var| var.to_s}.
             join("\n  ")
-        $stderr.puts <<-MISSING.gsub(/^ {11}/, '')
-           DB CONFIG NOT FOUND!
+        $stderr.puts <<-MISSING.gsub(/^ {10}/, '')
+          DB CONFIG NOT FOUND!
 
-           No such DB config key exists [Tried: #{key}]. If you're looking for a shard
-           connection use one of 1..4 or 'one'..'four' as the shard identifier.
+          No such DB config key exists [Tried: #{key}]. If you're looking for a shard
+          connection use one of 1..4 or 'one'..'four' as the shard identifier.
 
-           Similar config keys from your farm:
-             #{similar_pairs}
+          Similar config keys from your farm:
+            #{similar_pairs}
         MISSING
       end
     end
@@ -1007,9 +1014,9 @@ Main {
 
     def db_key(db)
       words = %w(ONE TWO THREE FOUR)
-      return url_master if db == 'master'
+      return url_master    if db == 'master'
       return url_warehouse if db == 'warehouse'
-      return url_etl if db == 'etl'
+      return url_etl       if db == 'etl'
       shard_count = db.to_i
       replacement = (1..4).include?(shard_count) ? words[shard_count - 1] : db.upcase
       url_shard(replacement)
