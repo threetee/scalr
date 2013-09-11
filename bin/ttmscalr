@@ -974,8 +974,8 @@ Main {
 
       pair = response.content.find{|var| var.name_equals?(key)}
       if pair
-        external_url = pair.value.gsub(/int/, 'ext')
-        external_url.gsub!(/master/, 'slave')  if is_slave
+        external_url = pair.value.gsub(/@int\./, '@ext.')
+        external_url.gsub!(/\.master\./, '.slave.')  if is_slave
         command = params['url'].value ? external_url : "psql #{external_url}"
         puts "Executing `#{command}`"
         exec command
