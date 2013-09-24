@@ -67,8 +67,7 @@ def fetch_role_for_script(options, role_specification = nil)
   elsif role_specification.strip == 'all'
     roles = role_response.content.reject {|role| role.name.match(/PGSQL/)}
   else
-    role_options = Scalr::Caller.collect_options(params, [:farm_role_id])
-    roles << Scalr::ResponseObject::FarmRole.by_id(role_response.content, role_options[:farm_role_id])
+    roles << role_response.content.detect {|role| role.name.downcase == role_specification}
   end
   roles.compact!
   raise 'Cannot determine role script executes in - weird!' if roles.empty?
