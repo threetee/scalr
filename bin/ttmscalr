@@ -67,7 +67,8 @@ def fetch_role_for_script(options, role_specification = nil)
   elsif role_specification.strip == 'all'
     roles = role_response.content.reject {|role| role.name.match(/PGSQL/)}
   else
-    roles << role_response.content.detect {|role| role.name.downcase == role_specification}
+    resolved_role = Scalr.match_alias('role', role_specification)
+    roles << role_response.content.detect {|role| role.name.downcase == resolved_role}
   end
   roles.compact!
   raise 'Cannot determine role script executes in - weird!' if roles.empty?
@@ -358,7 +359,7 @@ Main {
       else
         roles = fetch_role_for_script(options, target)
         puts "Executing reset for #{roles.length == 1 ? 'role' : 'roles'}: " +
-                 roles.map {|role| Scalr.first_alias('role', role.name)}.join(', ')
+                 roles.map {|role| Scalr.first_alias('role', role.name) + " (ID: #{role.id})"}.join(', ')
         roles.each do |role|
           response = invoke(:script_execute, options.merge(farm_role_id: role.id))
           execution_errors << role if generic_error(response)
