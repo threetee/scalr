@@ -693,7 +693,7 @@ Main {
         puts 'NO CONFIG FOUND'
       elsif matching_key = params['key'].value
         found = response.content.detect {|pair| pair.name_equals?(matching_key)}
-        puts found.value if found
+        print found.value if found
       else
         puts Scalr::ResponseObject::Variable.show_items(response.content).join("\n")
       end
@@ -974,11 +974,14 @@ Main {
 
       pair = response.content.find{|var| var.name_equals?(key)}
       if pair
-        external_url = pair.value.gsub(/@int\./, '@ext.')
-        external_url.gsub!(/\.master\./, '.slave.')  if is_slave
-        command = params['url'].value ? external_url : "psql #{external_url}"
-        puts "Executing `#{command}`"
-        exec command
+        external_url = scrub_database_url(pair.value, is_slave)
+        if params['url'].value
+          print external_url
+        else
+          command =  "psql #{external_url}"
+          puts "Executing `#{command}`"
+          exec command
+        end
       else
         similar_pairs = response.content.
             find_all {|var| var.name_matches?(/^TTM.+URL$/)}.
@@ -993,6 +996,15 @@ Main {
           Similar config keys from your farm:
             #{similar_pairs}
         MISSING
+      end
+    end
+
+    def scrub_database_url(url, is_slave = false)
+      scrubbed = url.gsub(/@int\./, '@ext.')
+      if is_slave
+        scrubbed.gsub(/\.master\./, '.slave.')
+      else
+        scrubbed
       end
     end
 
