@@ -158,6 +158,7 @@ Main {
       task             - Get information about a deployment task
       terminate        - Terminate a server (a cure-all for sick dynos)
       deploy:monitor   - [not done yet!] Monitor an existing deployment
+      deploy:lesson_player - Deploy the lesson player
   SYN
 
   ########## Deployment
@@ -240,6 +241,54 @@ Main {
       script_poll(servers: exec_role.servers_running, script_name: params['script'].value,
                   script_time: script_time, farm_id: options[:farm_id],
                   success: 'Migration complete.', max_polls: 50)
+    end
+  end
+
+  mode 'deploy:lesson_player' do
+    description 'Deploy the lesson player to the web role in the given farm'
+
+    argument 'farm, -f' do
+      description 'Farm where the lesson player will be deployed'
+    end
+
+    option 'role, -r' do
+      argument :optional
+      description 'Specific role we will run migration on, defaults to "web"'
+      default 'web'
+    end
+
+    option 'script' do
+      argument :optional
+      description 'Script to execute, defaults to "Deploy lesson player" (should not need to change)'
+      default 'Deploy lesson player'
+    end
+
+    option 'certain' do
+      argument :optional
+      description 'Override the reminder message.'
+    end
+
+    option 'timeout' do
+      argument :optional
+      description 'Override the timeout, defaults to 60 seconds'
+      default '60'
+    end
+
+    def run
+      unless params['certain'].value
+        puts "Are you SURE you pushed to the '#{params[:farm].value}' branch of the aws-lesson-player repo?"
+        print "Waiting a few seconds to jog your memory. Ctrl-C if you're not sure! "
+        5.times {sleep(1); print '.'}
+        puts "OK, let's go!"
+      end
+
+      options = Scalr::Caller.collect_options(params, [:farm_id, :farm_role_id, :script_id, :timeout])
+      exec_role = fetch_role_for_script(options).first
+      script_time = Time.now
+      response = invoke(:script_execute, options)
+      return if generic_error(response)
+
+      puts 'Lesson player deployed.'
     end
   end
 
