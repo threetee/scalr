@@ -24,6 +24,7 @@ Gem::Specification.new do |s|
 
   s.add_dependency("activesupport", [">= 0"])
   s.add_dependency('main', ['>= 5.2.0'])
+  s.add_dependency('ruby-hmac', ['>= 0'])
 
   s.files        = Dir.glob("bin/**/*") + Dir.glob("lib/**/*") + %w(README.markdown)
   s.require_path = 'lib'
