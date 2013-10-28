@@ -407,8 +407,11 @@ Main {
         all_servers = [server]
       else
         roles = fetch_role_for_script(options, target)
-        puts "Executing reset for #{roles.length == 1 ? 'role' : 'roles'}: " +
-                 roles.map {|role| Scalr.first_alias('role', role.name) + " (ID: #{role.id})"}.join(', ')
+        print "Executing reset for #{roles.length == 1 ? 'role' : 'roles'}: "
+        puts roles.map {|role|
+          alias_or_name = Scalr.first_alias('role', role.name) || role.name
+          " #{alias_or_name} (ID: #{role.id})"
+        }.join(', ')
         roles.each do |role|
           response = invoke(:script_execute, options.merge(farm_role_id: role.id))
           execution_errors << role if generic_error(response)
