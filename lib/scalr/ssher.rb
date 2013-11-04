@@ -17,7 +17,7 @@ module Scalr
       exec command
     end
 
-    def execute_scp(download_path, local_path)
+    def execute_scp_in(download_path, local_path)
       unless download_path && local_path
         $stderr.puts("Cannot SCP: both download path (#{download_path}) and local path (#{local_path}) must be defined.")
         @exit_status = 1
@@ -28,6 +28,21 @@ module Scalr
       return unless check_key_path
 
       command = "scp -i #{key_path} root@#{server.external_ip}:#{download_path} #{local_path}"
+      puts "Executing `#{command}`"
+      exec command
+    end
+
+    def execute_scp_out(local_path, download_path)
+      unless download_path && local_path
+        $stderr.puts("Cannot SCP: both download path (#{download_path}) and local path (#{local_path}) must be defined.")
+        @exit_status = 1
+        return
+      end
+
+      return unless identify_server
+      return unless check_key_path
+
+      command = "scp -i #{key_path} #{local_path} root@#{server.external_ip}:#{download_path}"
       puts "Executing `#{command}`"
       exec command
     end

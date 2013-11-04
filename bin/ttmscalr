@@ -128,7 +128,7 @@ Main {
     validate {|value| Scalr.debug = $stderr if value; true} # sneaky use of validate, sorry...
   end
 
-  # this replaces the built-in one which just lists all the commands in one long line, 
+  # this replaces the built-in one which just lists all the commands in one long line,
   # but has the downside requiring manual updates when you add new modes
   synopsis <<-SYN.gsub(/^ {4}/, '')
     Available commands, use 'ttmscalr <command> --help' for more:
@@ -142,7 +142,7 @@ Main {
       farm             - List roles in a farm
       farm:list        - List farms
       farm:server      - Find out on which role a server lives within a farm
-      launch           - Launch a server within a farm 
+      launch           - Launch a server within a farm
       log:script       - Show script logs
       log:system       - Show system logs
       maintenance      - Change a farm's maintenance status
@@ -837,9 +837,9 @@ Main {
   mode 'scp' do
     description 'Brings a file from a remote server to your local machine via scp'
 
-    examples "#{script_name} scp rails.1 -f review -p ",
-             "#{script_name} scp sidekiq.2 -f production",
-             "#{script_name} scp 12 -f production -r rails"
+    examples "#{script_name} scp rails.1 -f review -p /var/www/foo.txt",
+             "#{script_name} scp sidekiq.2 -f production -p /var/www/foo.txt -l 20131104-foo.txt",
+             "#{script_name} scp 12 -f production -r rails --out -p /var/www/foo.txt -l 20131104-foo.txt"
 
     argument 'server' do
       description 'Server index to use with role, or "role.index" name (e.g., "rails.2")'
@@ -865,6 +865,10 @@ Main {
       description 'Path to file to write on local machine (will infer from -p if not given); we will refuse to run if this already exists'
     end
 
+    option 'out' do
+      description 'Push the file out to the server instead of pulling the file in from the server (default)'
+    end
+
     def run
       remote = params['path'].value
       unless remote
@@ -872,14 +876,26 @@ Main {
         exit_status 1
         return
       end
-      local = params['local'].given? ? params['local'].value : File.basename(remote)
-      if File.exists?(local)
-        $stderr.puts("Local file already exists: #{local}")
-        exit_status 1
-        return
-      end
       ssher = Scalr::Ssher.new(params)
-      ssher.execute_scp(remote, local)
+
+      if params['out'].value
+        local = params['local'].given? && File.exists?(params['local'].value) ? params['local'].value : nil
+        unless local
+          $stderr.puts("Required argument: --local (-l) file must exist if you're sending file out (given: #{params['local'].value})")
+          exit_status 1
+          return
+        end
+        ssher.execute_scp_out(local, remote)
+      else
+        local = params['local'].given? ? params['local'].value : File.basename(remote)
+        if File.exists?(local)
+          $stderr.puts("Local file already exists: #{local}")
+          exit_status 1
+          return
+        end
+        ssher.execute_scp_in(remote, local)
+      end
+
       exit_status ssher.exit_status
     end
   end
