@@ -837,9 +837,9 @@ Main {
   mode 'scp' do
     description 'Brings a file from a remote server to your local machine via scp'
 
-    examples "#{script_name} scp rails.1 -f review -p /var/www/foo.txt",
-             "#{script_name} scp sidekiq.2 -f production -p /var/www/foo.txt -l 20131104-foo.txt",
-             "#{script_name} scp 12 -f production -r rails --out -p /var/www/foo.txt -l 20131104-foo.txt"
+    examples "#{script_name} scp rails.1 -f review --remote /var/www/foo.txt",
+             "#{script_name} scp sidekiq.2 -f production --remote /var/www/foo.txt --local 20131104-foo.txt",
+             "#{script_name} scp debug.1 -f production --out --remote /var/www/public --local '*.html'"
 
     argument 'server' do
       description 'Server index to use with role, or "role.index" name (e.g., "rails.2")'
@@ -855,14 +855,22 @@ Main {
       description 'Role with server, required unless using role name with "server" arg'
     end
 
-    option 'path, -p' do
+    option 'remote, -t' do
       argument :required
-      description 'Path to file to read on remote server'
+      description 'Remote path to download, or remote directory/file to write'
     end
 
     option 'local, -l' do
       argument :optional
-      description 'Path to file to write on local machine (will infer from -p if not given); we will refuse to run if this already exists'
+      description <<-DESC
+        If bringing file IN: path to file to write on local machine
+        (will infer from -p if not given); we will refuse to run if
+        this already exists.
+
+        If sending file(s) OUT: path or glob to files in local machine
+        to send to the server. NOTE: if you use a glob you'll need to
+        put it in single quotes. (See examples.)
+      DESC
     end
 
     option 'out' do
@@ -870,16 +878,16 @@ Main {
     end
 
     def run
-      remote = params['path'].value
+      remote = params['remote'].value
       unless remote
-        $stderr.puts('Required argument: --path (-p) with path to remote file')
+        $stderr.puts('Required argument: --remote (-t) with path to remote file/dir')
         exit_status 1
         return
       end
       ssher = Scalr::Ssher.new(params)
 
       if params['out'].value
-        local = params['local'].given? && File.exists?(params['local'].value) ? params['local'].value : nil
+        local = file_or_glob(params['local'].value)
         unless local
           $stderr.puts("Required argument: --local (-l) file must exist if you're sending file out (given: #{params['local'].value})")
           exit_status 1
@@ -897,6 +905,14 @@ Main {
       end
 
       exit_status ssher.exit_status
+    end
+
+    def file_or_glob(path)
+      if path && (path.match(/\*/) || File.exists?(path))
+        path
+      else
+        nil
+      end
     end
   end
 
