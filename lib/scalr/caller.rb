@@ -25,7 +25,7 @@ module Scalr
       response = new(:global_variables_list).invoke(options)
       if response && response.success?
         matched = response.content.detect {|pair| pair.name_equals?(variable_name)}
-        matched.value
+        matched.nil? ? nil : matched.value
       else
         error = response.nil? ? '(unknown error, no response)' : response.error
         raise "Failed to fetch variable #{variable_name}: #{error}"
@@ -69,7 +69,7 @@ module Scalr
     # allow use of either our short name or Scalr API name
     # return: hash of API option name (e.g., :farm_id) to value that
     #         will be used for that option
-    def collect_options(params, api_names)
+    def collect_options(params, api_names = @request_info[:inputs].keys)
       options = {}
       api_names.each do |api_name|
         cli_name = map_parameter_key(api_name)

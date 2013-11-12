@@ -738,7 +738,14 @@ Main {
     end
 
     def run
-      response = dispatch(:global_variables_list, params)
+      caller = Scalr::Caller.new(:global_variables_list)
+      options = caller.collect_options(params)
+      unless options[:farm_id]
+        $stderr.puts "UNKNOWN FARM #{params['farm'].value}"
+        return
+      end
+
+      response = caller.invoke(options)
       return if generic_error(response)
 
       if response.content.nil? || response.content.empty?
