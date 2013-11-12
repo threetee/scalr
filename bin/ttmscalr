@@ -741,7 +741,8 @@ Main {
       caller = Scalr::Caller.new(:global_variables_list)
       options = caller.collect_options(params)
       unless options[:farm_id]
-        $stderr.puts "UNKNOWN FARM #{params['farm'].value}"
+        $stderr.puts "UNKNOWN FARM #{params['farm'].value}. You may need to remove your alias file " +
+                     "(#{Scalr::TTMAliasReader::DEFAULT_ALIAS_FILE}) and retry."
         return
       end
 
