@@ -210,11 +210,12 @@ Main {
   mode 'deploy:new' do
     description <<-DESC
       Deploy an application to all non-DB roles within a farm. Non-verbose output will show
-      you the number of servers remaining to finish deployment.'
+      you the number of servers remaining to finish deployment.
     DESC
 
     examples "$ #{script_name} deploy production",
-             "$ #{script_name} deploy lesson_player -f lab"
+             "$ #{script_name} deploy lesson_player -f lab",
+             "$ #{script_name} deploy review --key keepcalmandre"
 
     argument 'application_name' do
       description "Application we will deploy; this typically also maps to the farm name but you can specify it for special cases (e.g., 'lesson_player')"
@@ -234,6 +235,10 @@ Main {
       description 'Script to execute, defaults to "TTMDeployApplication" (should not need to change)'
       default 'V2-TTMAppConfigAndLaunch'
     end
+    option 'key' do
+      argument :optional
+      description 'Deployment tracking key, defaults to generated UUID'
+    end
     option 'verbose' do
       description 'false (default): display number of servers remaining with every poll; true: display data as we poll'
     end
@@ -245,16 +250,53 @@ Main {
         params['farm'].value = params['application_name'].value
         puts "Deploying application #{params['application_name'].value}"
       end
-      options = Scalr::Caller.collect_options(params, [:application_name, :farm_id, :script_id, :hard])
-      options[:verbose] = params['verbose'].value
+
       unless params['certain'].value
         puts "Are you SURE you pushed to the AWS #{params['farm'].value} repo?"
         print "Waiting a few seconds to jog your memory. Ctrl-C if you're not sure! "
         5.times {sleep(1); print '.'}
         puts "OK, let's go!"
       end
+
+      options = Scalr::Caller.collect_options(params, [:application_name, :farm_id, :script_id, :hard])
+      options[:verbose] = params['verbose'].value
+      options[:deployment_key] = params['key'].value
       options[:new_deploy] = true
-      Scalr::Deployer.new(options).execute
+      deployer = Scalr::Deployer.new(options)
+
+      puts 'Cleanup command if things go wrong:',
+           "  #{$0} deploy:cleanup #{params['farm'].value} -k #{deployer.deployment_key}"
+
+      deployer.execute
+    end
+  end
+
+  mode 'deploy:cleanup' do
+    description <<-DESC
+      Cleanup a failed application deploy
+    DESC
+
+    examples "$ #{script_name} deploy:cleanup production --key keepcalmandre",
+             "$ #{script_name} deploy:cleanup review --key 437992a8-6ece-4bdb-88d3-a375dd845d6e"
+
+    argument 'farm, -f' do
+      description 'Farm on which you need to cleanup a deploy'
+    end
+    option 'deployment_key, -k' do
+      description 'Tracking key used for deployment'
+    end
+    option 'script' do
+      argument :optional
+      description 'Script to execute, defaults to "TTMDeployApplication" (should not need to change)'
+      default 'V2-TTMAppConfigAndLaunch'
+    end
+
+    def run
+      options = Scalr::Caller.collect_options(params, [:farm_id, :script_id])
+      options[:config_variables] = {myTask: 'CleanUp', deploymentKey: params['deployment_key'].value}
+      response = invoke(:script_execute, options)
+      return if generic_error(response)
+      puts "OK: Executed cleanup on farm #{params['farm'].value}"
     end
   end
 

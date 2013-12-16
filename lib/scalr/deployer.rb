@@ -7,6 +7,8 @@ module Scalr
     POLL_SLEEP_SECONDS = 10
     MAX_POLL_COUNT = 60
 
+    attr_accessor :deployment_key
+
     def initialize(options)
       @farm_id          = options[:farm_id]
       @verbose          = options[:verbose]
@@ -18,6 +20,7 @@ module Scalr
       @application_name = options[:application_name]
       @new_deploy       = options[:new_deploy]
       @script_id        = options[:script_id]
+      @deployment_key   = options[:deployment_key] || SecureRandom.uuid
 
       @monitors         = []
     end
@@ -31,15 +34,14 @@ module Scalr
         script_options = {
           farm_id:            @farm_id,
           script_id:          @script_id,
+          timeout:            1200,
           config_variables:   {
             restart_on_deploy:  @hard_restart ? 'true' : 'false',
             my_app:             @application_name,
-            deployment_key:     SecureRandom.uuid
+            deployment_key:     deployment_key
           }
         }
-        puts "Invoking script with options: #{script_options.inspect}"
         script_result = Scalr::Caller.new(:script_execute).invoke(script_options)
-        puts "Invoked, result: #{script_result.inspect}"
         unless script_result && script_result.success?
           puts 'Script failure, please see logs'
           return

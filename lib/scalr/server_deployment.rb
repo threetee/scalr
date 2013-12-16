@@ -17,7 +17,7 @@ module Scalr
       server.name(role_alias)
       @farm_id = farm_id
       @server = server
-      @status = 'NOT EXECUTED'
+      @status = 'DEPLOYING'
       @log_sink = options[:log_sink] || Scalr::LogSink.new(@name)
       @last_seen = Time.now
       @new_deploy = options[:new_deploy]
