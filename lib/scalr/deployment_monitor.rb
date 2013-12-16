@@ -7,23 +7,26 @@ module Scalr
 
     attr_accessor :error, :role, :status
 
-    def initialize(role, farm_id, verbose = false)
-      @farm_id   = farm_id
-      @role      = role
-      @servers = @role.servers_running.map {|server| Scalr::ServerDeployment.new(@farm_id, role, server)}
-      @status    = 'NOT EXECUTED'
-      @verbose   = verbose
+    def initialize(role, farm_id, options = {})
+      @farm_id    = farm_id
+      @role       = role
+      @new_deploy = options[:new_deploy]
+      @servers    = @role.servers_running.map {|server| create_deployment_for(server)}
+      @status     = 'NOT EXECUTED'
+      @verbose    = options[:verbose]
     end
 
     def start(deployment_caller)
-      response = deployment_caller.invoke(farm_role_id: @role.id)
-      if response.nil? || response.failed?
-        @status = 'FAILED'
-        @error = response.nil? ? 'Input validation error' : response.error
-        return
+      unless @new_deploy
+        response = deployment_caller.invoke(farm_role_id: @role.id)
+        if response.nil? || response.failed?
+          @status = 'FAILED'
+          @error = response.nil? ? 'Input validation error' : response.error
+          return
+        end
+        assign_tasks(response.content)
       end
       @status = 'STARTED'
-      assign_tasks(response.content)
       puts "ROLE: #{@role.name}: #{@servers.length} servers" if @verbose
     end
 
@@ -51,7 +54,8 @@ module Scalr
     end
 
     # status will change to one of DEPLOYED|DEPLOYING|FAILED|PENDING
-    # iff all the tasks have the same status
+    # iff all the tasks have the same status; note that this WILL NEVER
+    # RETURN TRUE if you're using the new deployment
     # returns: true if any server status changed, false if none did
     def refresh_status
       changed = @servers.any? &:refresh
@@ -109,8 +113,7 @@ module Scalr
         server_deploy = deployment_for_server(task.server_id)
         unless server_deploy
           puts "WEIRD! Scalr generated a task for which we didn't have a server entry! Task: #{task.to_s}"
-          server_deploy = Scalr::ServerDeployment.new(@farm_id, @role, @role.find_server(task.server_id))
-          @servers << server_deploy
+          @servers << create_deployment_for(@role.find_server(task.server_id))
         end
         server_deploy.assign_task(task)
       end
@@ -118,6 +121,10 @@ module Scalr
         puts "WEIRD! No Scalr task for running server: #{server_deploy.id}"
         @servers.delete(server_deploy)
       end
+    end
+
+    def create_deployment_for(server)
+      Scalr::ServerDeployment.new(@farm_id, @role, server, new_deploy: @new_deploy)
     end
 
     def deployment_for_server(server_id)

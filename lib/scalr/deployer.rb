@@ -8,24 +8,52 @@ module Scalr
     MAX_POLL_COUNT = 60
 
     def initialize(options)
-      @farm_id        = options[:farm_id]
-      @application_id = options[:application_id]
-      @remote_path    = options[:remote_path]
-      @verbose        = options[:verbose]
-      @hard_restart   = options[:hard]
-      @monitors       = []
+      @farm_id          = options[:farm_id]
+      @verbose          = options[:verbose]
+      @hard_restart     = options[:hard]
+
+      @application_id   = options[:application_id]
+      @remote_path      = options[:remote_path]
+
+      @application_name = options[:application_name]
+      @new_deploy       = options[:new_deploy]
+      @script_id        = options[:script_id]
+
+      @monitors         = []
     end
 
     def execute
       initialize_monitors
       @verbose && puts("Starting #{@monitors.length} monitors...")
 
-      deploy_caller = Scalr::Caller.
-                        new(:dm_application_deploy).
-                        partial_options(application_id: @application_id,
-                                        farm_id: @farm_id,
-                                        remote_path: @remote_path)
-      flag_hard_restart if @hard_restart
+      if @new_deploy
+        # execute the script for entire farm, then poll for results
+        script_options = {
+          farm_id:            @farm_id,
+          script_id:          @script_id,
+          config_variables:   {
+            restart_on_deploy:  @hard_restart ? 'true' : 'false',
+            my_app:             @application_name,
+            deployment_key:     SecureRandom.uuid
+          }
+        }
+        puts "Invoking script with options: #{script_options.inspect}"
+        script_result = Scalr::Caller.new(:script_execute).invoke(script_options)
+        puts "Invoked, result: #{script_result.inspect}"
+        unless script_result && script_result.success?
+          puts 'Script failure, please see logs'
+          return
+        end
+        deploy_caller = nil
+      else
+        # execute once per role, then poll for results
+        deploy_caller = Scalr::Caller
+          .new(:dm_application_deploy)
+          .partial_options(application_id: @application_id,
+                           farm_id:        @farm_id,
+                           remote_path:    @remote_path)
+        flag_hard_restart if @hard_restart
+      end
 
       @monitors.each do |monitor|
         monitor.start(deploy_caller)
@@ -43,8 +71,8 @@ module Scalr
       end
 
       @monitors = role_response.content.
-          find_all {|role| ! role.name.match(/PGSQL/)}.
-          map {|role| Scalr::DeploymentMonitor.new(role, @farm_id, @verbose)}
+          find_all {|role| ! role.name.match(/(PGSQL|lb\-nginx|DataLoad)/)}. # no databases or load balancers
+          map {|role| Scalr::DeploymentMonitor.new(role, @farm_id, verbose: @verbose, new_deploy: @new_deploy)}
 
       if @monitors.empty?
         raise 'FAILED: Cannot deploy to a farm with only database roles! ',

@@ -515,6 +515,10 @@ or just those matching a substring:
 
 # Scalr API ideas
 
-* Tasks should have a timestamp (dm_deployment_tasks_list)
+* Tasks should have a timestamp (`dm_deployment_tasks_list`)
 * I should be able to fetch logs not only by a pagination offset,
-  but also before/after a timestamp
+  but also before/after/between timestamps
+* Would be very interesting to have webhooks for feedback from
+  scripting/system logs => I register a URL for a particular script
+  (or maybe for all scripts?) and scalr posts status updates to the
+  URL as they come up

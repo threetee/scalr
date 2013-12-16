@@ -12,14 +12,15 @@ module Scalr
 
     attr_reader :log_sink, :name, :server, :status, :task
 
-    def initialize(farm_id, role, server)
+    def initialize(farm_id, role, server, options = {})
       role_alias = Scalr.first_alias('role', role.name) || role.name
       server.name(role_alias)
       @farm_id = farm_id
       @server = server
       @status = 'NOT EXECUTED'
-      @log_sink = Scalr::LogSink.new(@name)
+      @log_sink = options[:log_sink] || Scalr::LogSink.new(@name)
       @last_seen = Time.now
+      @new_deploy = options[:new_deploy]
       @scans_without_change = 0
     end
 
@@ -60,7 +61,8 @@ module Scalr
     end
 
     def refresh
-      return false if done?
+      return false if done? || @new_deploy # new deployment method doesn't use deployment tasks
+
       response = task_refresher.invoke(deployment_task_id: task.id)
       task.status = response.content if response
       changed = @status != task.status
@@ -103,8 +105,10 @@ module Scalr
         process_log_response(log_caller.invoke(farm_id: @farm_id, server_id: server.id))
       end
 
-      task_log_caller = Scalr::Caller.new(:dm_deployment_task_get_log)
-      process_log_response(task_log_caller.invoke(deployment_task_id: task.id))
+      unless @new_deploy
+        task_log_caller = Scalr::Caller.new(:dm_deployment_task_get_log)
+        process_log_response(task_log_caller.invoke(deployment_task_id: task.id))
+      end
     end
 
     def process_log_response(response)
