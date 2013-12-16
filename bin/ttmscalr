@@ -276,8 +276,8 @@ Main {
       Cleanup a failed application deploy
     DESC
 
-    examples "$ #{script_name} deploy:cleanup production --key keepcalmandre",
-             "$ #{script_name} deploy:cleanup review --key 437992a8-6ece-4bdb-88d3-a375dd845d6e"
+    examples "$ #{script_name} deploy:cleanup production -k keepcalmandre",
+             "$ #{script_name} deploy:cleanup review -k 437992a8-6ece-4bdb-88d3-a375dd845d6e"
 
     argument 'farm, -f' do
       description 'Farm on which you need to cleanup a deploy'
@@ -293,7 +293,7 @@ Main {
 
     def run
       options = Scalr::Caller.collect_options(params, [:farm_id, :script_id])
-      options[:config_variables] = {myTask: 'CleanUp', deploymentKey: params['deployment_key'].value}
+      options[:config_variables] = {my_task: 'CleanUp', deployment_key: params['deployment_key'].value}
       response = invoke(:script_execute, options)
       return if generic_error(response)
       puts "OK: Executed cleanup on farm #{params['farm'].value}"
