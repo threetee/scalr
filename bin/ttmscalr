@@ -265,7 +265,7 @@ Main {
       deployer = Scalr::Deployer.new(options)
 
       puts 'Cleanup command if things go wrong:',
-           "  #{$0} deploy:cleanup #{params['farm'].value} -k #{deployer.deployment_key}"
+           "  $ #{File.basename($0)} deploy:cleanup #{params['farm'].value} -k #{deployer.deployment_key}"
 
       deployer.execute
     end
