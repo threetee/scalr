@@ -136,6 +136,7 @@ Main {
       config:get       - Get a farm's configuration key/value pairs, optionally restricting it to one
       config:set       - Assign one or more configuration pairs to a farm
       deploy           - Deploy an application
+      deploy:cleanup   - Cleanup a lock left behind by a failed application deploy
       deploy:migrate   - Run a db:migrate for a deployed application on a farm
       deploy:tasks     - List deployment tasks
       exterminate      - Good times
@@ -166,56 +167,12 @@ Main {
   mode 'deploy' do
     description <<-DESC
       Deploy an application to all non-DB roles within a farm. Non-verbose output will show
-      you the number of servers remaining to finish deployment.'
-    DESC
-
-    examples "$ #{script_name} deploy production -f rc",
-             "$ #{script_name} deploy review"
-
-    argument 'application' do
-      description 'Application ID/alias to deploy. (Use "application:list" to list.)'
-    end
-    option 'farm, -f' do
-      argument :required
-      description 'Farm we will deploy to, unnecessary if application alias the same as a farm alias'
-    end
-    option 'path' do
-      argument :optional
-      description 'Path to which the application will be deployed (rarely changes)'
-    end
-    option 'certain' do
-      description 'true: Yes, I am certain that I have pushed to the appropriate repo; false (default): No, I am not certain'
-    end
-    option 'verbose' do
-      description 'false (default): display number of servers remaining with every poll; true: display data as we poll'
-    end
-    option 'hard' do
-      description 'false (default): do graceful restart on deploy, true: do hard restart on deploy'
-    end
-
-    def run
-      options = Scalr::Caller.collect_options(params, [:farm_id, :application_id, :remote_path, :hard])
-      options[:verbose] = params['verbose'].value
-      unless params['certain'].value
-        puts "Are you SURE you pushed to the AWS #{params['application'].value} repo?"
-        print "Waiting a few seconds to jog your memory. Ctrl-C if you're not sure! "
-        5.times {sleep(1); print '.'}
-        puts "OK, let's go!"
-      end
-
-      Scalr::Deployer.new(options).execute
-    end
-  end
-
-  mode 'deploy:new' do
-    description <<-DESC
-      Deploy an application to all non-DB roles within a farm. Non-verbose output will show
       you the number of servers remaining to finish deployment.
     DESC
 
     examples "$ #{script_name} deploy production",
              "$ #{script_name} deploy lesson_player -f lab",
-             "$ #{script_name} deploy review --key keepcalmandre"
+             "$ #{script_name} deploy review -k keepcalmandre"
 
     argument 'application_name' do
       description "Application we will deploy; this typically also maps to the farm name but you can specify it for special cases (e.g., 'lesson_player')"
@@ -230,17 +187,18 @@ Main {
     option 'hard' do
       description 'false (default): do graceful restart on deploy, true: do hard restart on deploy'
     end
-    option 'script' do
-      argument :optional
-      description 'Script to execute, defaults to "TTMDeployApplication" (should not need to change)'
-      default 'V2-TTMAppConfigAndLaunch'
-    end
-    option 'key' do
+    option 'deployment_key, -k' do
       argument :optional
       description 'Deployment tracking key, defaults to generated UUID'
     end
+    option 'script' do
+      argument :optional
+      description 'Script to execute, defaults to "V2-TTMAppConfigAndLaunch" (should not need to change)'
+      default 'V2-TTMAppConfigAndLaunch'
+    end
     option 'verbose' do
       description 'false (default): display number of servers remaining with every poll; true: display data as we poll'
+      default false
     end
 
     def run
@@ -259,9 +217,9 @@ Main {
       end
 
       options = Scalr::Caller.collect_options(params, [:application_name, :farm_id, :script_id, :hard])
-      options[:verbose] = params['verbose'].value
-      options[:deployment_key] = params['key'].value
-      options[:new_deploy] = true
+      options[:verbose]        = params['verbose'].value
+      options[:deployment_key] = params['deployment_key'].value
+      options[:new_deploy]     = true
       deployer = Scalr::Deployer.new(options)
 
       puts 'Cleanup command if things go wrong:',
@@ -441,6 +399,50 @@ Main {
         puts Scalr::ResponseObject::DeploymentTaskItem.
                  show_items(response.content).join("\n")
       end
+    end
+  end
+
+  mode 'deploy:old' do
+    description <<-DESC
+      Old method of deploying an application to all non-DB roles within a farm. Non-verbose output will show
+      you the number of servers remaining to finish deployment.'
+    DESC
+
+    examples "$ #{script_name} deploy:old production -f rc",
+             "$ #{script_name} deploy:old review"
+
+    argument 'application' do
+      description 'Application ID/alias to deploy. (Use "application:list" to list.)'
+    end
+    option 'farm, -f' do
+      argument :required
+      description 'Farm we will deploy to, unnecessary if application alias the same as a farm alias'
+    end
+    option 'path' do
+      argument :optional
+      description 'Path to which the application will be deployed (rarely changes)'
+    end
+    option 'certain' do
+      description 'true: Yes, I am certain that I have pushed to the appropriate repo; false (default): No, I am not certain'
+    end
+    option 'verbose' do
+      description 'false (default): display number of servers remaining with every poll; true: display data as we poll'
+    end
+    option 'hard' do
+      description 'false (default): do graceful restart on deploy, true: do hard restart on deploy'
+    end
+
+    def run
+      options = Scalr::Caller.collect_options(params, [:farm_id, :application_id, :remote_path, :hard])
+      options[:verbose] = params['verbose'].value
+      unless params['certain'].value
+        puts "Are you SURE you pushed to the AWS #{params['application'].value} repo?"
+        print "Waiting a few seconds to jog your memory. Ctrl-C if you're not sure! "
+        5.times {sleep(1); print '.'}
+        puts "OK, let's go!"
+      end
+
+      Scalr::Deployer.new(options).execute
     end
   end
 
