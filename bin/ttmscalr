@@ -65,7 +65,7 @@ def fetch_role_for_script(options, role_specification = nil)
   elsif role_specification.nil?
     raise 'Cannot fetch role(s) for script execution, no role provided in specification or options.'
   elsif role_specification.strip == 'all'
-    roles = role_response.content.reject {|role| role.name.match(/PGSQL/)}
+    roles = role_response.content.reject {|role| role.name.match(/(PGSQL|lb\-nginx)/)}
   else
     resolved_role = Scalr.match_alias('role', role_specification)
     roles << role_response.content.detect {|role| role.name.downcase == resolved_role}
@@ -469,7 +469,7 @@ Main {
 
     option 'script' do
       description 'Script to execute (defaults to "TTMAppConfigAndLaunch", should not need to change)'
-      default 'TTMAppConfigAndLaunch'
+      default 'V2-TTMAppConfigAndLaunch'
     end
 
     option 'timeout' do
@@ -485,7 +485,7 @@ Main {
       end
 
       options = Scalr::Caller.collect_options(params, [:farm_id, :script_id, :timeout])
-      options[:config_variables] = {myTask: 'HardReset'}
+      options[:config_variables] = {my_task: 'HardReset'}
 
       script_time = Time.now
       execution_errors = []
