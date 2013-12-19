@@ -34,6 +34,7 @@ module Scalr::Failure
     end
 
     def matches?
+      return false unless log_item.message
       ! log_item.message.match(self.class.pattern).nil?
     end
 

@@ -24,12 +24,14 @@ module Scalr
       @scans_without_change = 0
     end
 
-    def completed?; @status == 'completed' end
-    def deployed?;  @status == 'deployed'  end
-    def deploying?; @status == 'deploying' end
-    def done?;      failed? || completed?  end
-    def failed?;    @status == 'failed'    end
-    def pending?;   @status == 'pending'   end
+    def completed?;     @status == 'completed' end
+    def mark_completed; @status = 'completed' end
+    def deployed?;      @status == 'deployed'  end
+    def deploying?;     @status == 'deploying' end
+    def done?;          failed? || completed?  end
+    def failed?;        @status == 'failed'    end
+    def mark_failed;    @status = 'failed'    end
+    def pending?;       @status == 'pending'   end
 
     def to_s
       "#{@name}: #{@status}"
@@ -112,7 +114,10 @@ module Scalr
     end
 
     def process_log_response(response)
-      return unless response && response.success?
+      return unless response || response.success?
+      if response.content.respond_to?(:failure?) && response.content.failure?
+        mark_failed
+      end
       changes = response.content.
           find_all {|log_item| log_item.after?(@last_seen)}.
           map {|log_item| add_log(log_item)}.
