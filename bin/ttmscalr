@@ -202,10 +202,12 @@ Main {
     end
 
     def run
+      assign_application_from_farm = false
       if params['farm'].given?
         puts "Deploying application #{params['application_name'].value} to farm #{params['farm'].value}"
       else
         params['farm'].value = params['application_name'].value
+        assign_application_from_farm = true
         puts "Deploying application #{params['application_name'].value}"
       end
 
@@ -217,6 +219,18 @@ Main {
       end
 
       options = Scalr::Caller.collect_options(params, [:application_name, :farm_id, :script_id, :hard])
+
+      if assign_application_from_farm
+        response = invoke(:farms_list)
+        return if generic_error(response)
+        matching_farm = response.content.find {|summary| options[:farm_id].to_i == summary.id.to_i}
+        unless matching_farm
+          puts "Failed to match farm with ID #{options[:farm_id]} from #{response.content.inspect}"
+          return
+        end
+        options[:application_name] = matching_farm.name
+      end
+
       options[:verbose]        = params['verbose'].value
       options[:deployment_key] = params['deployment_key'].value
       options[:new_deploy]     = true
