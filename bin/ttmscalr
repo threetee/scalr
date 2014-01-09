@@ -82,7 +82,7 @@ end
 
 def script_poll(options)
   servers = options[:servers] || options[:role].servers_running
-  script_name = options[:script_name]
+  script_name = options[:script_name].gsub("-","_")
   script_time = options[:script_time]
 
   logs = Scalr::Poller.
@@ -132,33 +132,34 @@ Main {
   # but has the downside requiring manual updates when you add new modes
   synopsis <<-SYN.gsub(/^ {4}/, '')
     Available commands, use 'ttmscalr <command> --help' for more:
-      application:list - List available applications
-      config:get       - Get a farm's configuration key/value pairs, optionally restricting it to one
-      config:set       - Assign one or more configuration pairs to a farm
-      deploy           - Deploy an application
-      deploy:cleanup   - Cleanup a lock left behind by a failed application deploy
-      deploy:migrate   - Run a db:migrate for a deployed application on a farm
-      deploy:tasks     - List deployment tasks
-      exterminate      - Good times
-      farm             - List roles in a farm
-      farm:list        - List farms
-      farm:server      - Find out on which role a server lives within a farm
-      launch           - Launch a server within a farm
-      log:script       - Show script logs
-      log:system       - Show system logs
-      maintenance      - Change a farm's maintenance status
-      psql             - Open a command-line shell to a database
-      rails_console    - Open a command-line console to a rails application
-      restart          - Do a hard restart of a role
-      run              - Run a command on a server in a farm
-      script           - Get details about a script (mostly version history)
-      script:list      - List available scripts
-      scp              - Copy a remote file to local machine with SCP
-      sftp             - Use SFTP to connect to a server
-      ssh              - Use SSH to get a console on a server
-      task             - Get information about a deployment task
-      terminate        - Terminate a server (a cure-all for sick dynos)
-      deploy:monitor   - [not done yet!] Monitor an existing deployment
+      application:list  - List available applications
+      config:get        - Get a farm's configuration key/value pairs, optionally restricting it to one
+      config:set        - Assign one or more configuration pairs to a farm
+      deploy            - Deploy an application
+      deploy:cleanup    - Cleanup a lock left behind by a failed application deploy
+      deploy:migrate    - Run a db:migrate for a deployed application on a farm
+      deploy:tasks      - List deployment tasks
+      exterminate       - Good times
+      farm              - List roles in a farm
+      farm:list         - List farms
+      farm:server       - Find out on which role a server lives within a farm
+      launch            - Launch a server within a farm
+      log:script        - Show script logs
+      log:system        - Show system logs
+      maintenance       - Change a farm's maintenance status
+      psql              - Open a command-line shell to a database
+      rails_console     - Open a command-line console to a rails application
+      restart           - Do a hard restart of a role
+      run               - Run a command on a server in a farm
+      script            - Get details about a script (mostly version history)
+      script:list       - List available scripts
+      scp               - Copy a remote file to local machine with SCP
+      sftp              - Use SFTP to connect to a server
+      ssh               - Use SSH to get a console on a server
+      task              - Get information about a deployment task
+      terminate         - Terminate a server (a cure-all for sick dynos)
+      terminate:sidekiq - Gracefully shuts down sidekiq
+      deploy:monitor    - [not done yet!] Monitor an existing deployment
       deploy:lesson_player - Deploy the lesson player
   SYN
 
@@ -309,54 +310,6 @@ Main {
     end
   end
 
-  mode 'deploy:lesson_player' do
-    description 'Deploy the lesson player to the web role in the given farm'
-
-    argument 'farm, -f' do
-      description 'Farm where the lesson player will be deployed'
-    end
-
-    option 'role, -r' do
-      argument :optional
-      description 'Specific role we will run migration on, defaults to "web"'
-      default 'web'
-    end
-
-    option 'script' do
-      argument :optional
-      description 'Script to execute, defaults to "Deploy lesson player" (should not need to change)'
-      default 'Deploy lesson player'
-    end
-
-    option 'certain' do
-      argument :optional
-      description 'Override the reminder message.'
-    end
-
-    option 'timeout' do
-      argument :optional
-      description 'Override the timeout, defaults to 60 seconds'
-      default '60'
-    end
-
-    def run
-      unless params['certain'].value
-        puts "Are you SURE you pushed to the '#{params[:farm].value}' branch of the aws-lesson-player repo?"
-        print "Waiting a few seconds to jog your memory. Ctrl-C if you're not sure! "
-        5.times {sleep(1); print '.'}
-        puts "OK, let's go!"
-      end
-
-      options = Scalr::Caller.collect_options(params, [:farm_id, :farm_role_id, :script_id, :timeout])
-      exec_role = fetch_role_for_script(options).first
-      script_time = Time.now
-      response = invoke(:script_execute, options)
-      return if generic_error(response)
-
-      puts 'Lesson player deployed.'
-    end
-  end
-
   mode 'deploy:monitor' do
     description 'Monitor a deployment in process (not done yet!)'
 
@@ -413,50 +366,6 @@ Main {
         puts Scalr::ResponseObject::DeploymentTaskItem.
                  show_items(response.content).join("\n")
       end
-    end
-  end
-
-  mode 'deploy:old' do
-    description <<-DESC
-      Old method of deploying an application to all non-DB roles within a farm. Non-verbose output will show
-      you the number of servers remaining to finish deployment.'
-    DESC
-
-    examples "$ #{script_name} deploy:old production -f rc",
-             "$ #{script_name} deploy:old review"
-
-    argument 'application' do
-      description 'Application ID/alias to deploy. (Use "application:list" to list.)'
-    end
-    option 'farm, -f' do
-      argument :required
-      description 'Farm we will deploy to, unnecessary if application alias the same as a farm alias'
-    end
-    option 'path' do
-      argument :optional
-      description 'Path to which the application will be deployed (rarely changes)'
-    end
-    option 'certain' do
-      description 'true: Yes, I am certain that I have pushed to the appropriate repo; false (default): No, I am not certain'
-    end
-    option 'verbose' do
-      description 'false (default): display number of servers remaining with every poll; true: display data as we poll'
-    end
-    option 'hard' do
-      description 'false (default): do graceful restart on deploy, true: do hard restart on deploy'
-    end
-
-    def run
-      options = Scalr::Caller.collect_options(params, [:farm_id, :application_id, :remote_path, :hard])
-      options[:verbose] = params['verbose'].value
-      unless params['certain'].value
-        puts "Are you SURE you pushed to the AWS #{params['application'].value} repo?"
-        print "Waiting a few seconds to jog your memory. Ctrl-C if you're not sure! "
-        5.times {sleep(1); print '.'}
-        puts "OK, let's go!"
-      end
-
-      Scalr::Deployer.new(options).execute
     end
   end
 
@@ -536,6 +445,69 @@ Main {
       script_poll(servers: all_servers, script_name: params['script'].value,
                   script_time: script_time, farm_id: options[:farm_id],
                   success: 'Hard reset successful', max_polls: 50)
+    end
+  end
+
+  mode 'terminate:sidekiq' do
+    description 'Send the terminate signal to sidekiq roles on a farm and wait for completion'
+
+    examples "$ #{script_name} terminate-sidekiq -f dw-production"
+
+    argument 'target' do
+      description 'Role or server to reset; use "all" to reset all non-database roles on a ' +
+                      'farm and {role}.{index} pattern for individual instance.'
+      default 'sidekiq'
+    end
+
+    option 'farm, -f' do
+      argument :required
+      description 'Farm with role or server to reset'
+    end
+
+    option 'script' do
+      description 'Script to execute (defaults to "TTMAppConfigAndLaunch", should not need to change)'
+      default 'V2-TTMAppConfigAndLaunch'
+    end
+
+    option 'timeout' do
+      description 'Timeout in seconds (defaults to 1200)'
+      default '1200'
+    end
+
+    def run
+      print 'ARE YOU SURE YOU WANT TO TERMINATE SIDEKIQ? (yes to confirm) '
+      if $stdin.gets.downcase !~ /yes/
+        puts '...as you wish. Good day!'
+        Process::exit(1)
+      end
+
+      options = Scalr::Caller.collect_options(params, [:farm_id, :script_id, :timeout])
+      options[:config_variables] = {my_task: 'HaltSidekiq'}
+
+      script_time = Time.now
+      execution_errors = []
+
+      target = params['target'].value
+      roles = fetch_role_for_script(options, target)
+      print "Executing terminate for #{roles.length == 1 ? 'role' : 'roles'}: "
+      puts roles.map {|role|
+        alias_or_name = Scalr.first_alias('role', role.name) || role.name
+        " #{alias_or_name} (ID: #{role.id})"
+      }.join(', ')
+      roles.each do |role|
+        response = invoke(:script_execute, options.merge(farm_role_id: role.id))
+        execution_errors << role if generic_error(response)
+      end
+
+      all_servers = roles.flat_map do |role|
+        role.servers_running.each {|server| server.name = "#{Scalr.first_alias('role', role.name)}.#{server.index}"}
+      end
+
+      server_count = all_servers.length == 1 ? 'a server' : "#{all_servers.length} servers"
+      puts "Script executed... polling for logs from #{server_count}."
+      script_poll(servers: all_servers, script_name: params['script'].value,
+                  script_time: script_time, farm_id: options[:farm_id],
+                  success: 'Sidekiq terminate successful', max_polls: 50)
     end
   end
 
