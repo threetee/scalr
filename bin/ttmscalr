@@ -160,7 +160,6 @@ Main {
       terminate         - Terminate a server (a cure-all for sick dynos)
       terminate:sidekiq - Gracefully shuts down sidekiq
       deploy:monitor    - [not done yet!] Monitor an existing deployment
-      deploy:lesson_player - Deploy the lesson player
   SYN
 
   ########## Deployment
