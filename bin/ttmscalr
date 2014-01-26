@@ -171,7 +171,7 @@ Main {
     DESC
 
     examples "$ #{script_name} deploy production",
-             "$ #{script_name} deploy lesson_player -f lab",
+             "$ #{script_name} deploy lesson-player -f lab",
              "$ #{script_name} deploy review -k keepcalmandre"
 
     argument 'application_name' do
