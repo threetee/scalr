@@ -128,6 +128,10 @@ Main {
     validate {|value| Scalr.debug = $stderr if value; true} # sneaky use of validate, sorry...
   end
 
+  def run
+    puts synopsis
+  end
+
   # this replaces the built-in one which just lists all the commands in one long line,
   # but has the downside requiring manual updates when you add new modes
   synopsis <<-SYN.gsub(/^ {4}/, '')
