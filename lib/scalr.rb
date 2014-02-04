@@ -13,7 +13,7 @@ module Scalr
   @@debug = nil
 
   mattr_accessor :endpoint
-  @@endpoint = "api.scalr.net"
+  @@endpoint = "https://api.scalr.net"
   
   mattr_accessor :key_id
   @@key_id = nil
