@@ -1089,7 +1089,7 @@ Main {
       role_index = exec_role.first[:servers].first[:index]
       params['server'] = Value.new("debug.#{role_index}")
       ssher = Scalr::Ssher.new(params)
-      ssher.execute('-t "source /etc/profile.d/TTM.ENV.sh; if [[ -f /etc/profile.d/rvm.sh ]]; then source /etc/profile.d/rvm.sh; fi; cd /var/www; rails console"')
+      ssher.execute_in_www_dir("rails console")
       exit_status ssher.exit_status
     end
   end
@@ -1113,7 +1113,7 @@ Main {
       params['server'] = Value.new('debug.1')
       command = params['command'].value
       ssher = Scalr::Ssher.new(params)
-      ssher.execute("-t \"source /etc/profile.d/TTM.ENV.sh; cd /var/www; #{command} \"")
+      ssher.execute_in_apangea_dir(command)
       exit_status ssher.exit_status
     end
   end
