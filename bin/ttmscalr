@@ -1113,7 +1113,7 @@ Main {
       params['server'] = Value.new('debug.1')
       command = params['command'].value
       ssher = Scalr::Ssher.new(params)
-      ssher.execute_in_apangea_dir(command)
+      ssher.execute_in_www_dir(command)
       exit_status ssher.exit_status
     end
   end
