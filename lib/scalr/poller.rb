@@ -34,6 +34,7 @@ module Scalr
         matching_logs = log_response.content.find_all do |log_item|
           log_item.after?(script_time) && log_item.script_matches(script_name)
         end
+
         count += 1
         break if count > max_polls
         break if server_count != 0 && matching_logs.length == server_count
