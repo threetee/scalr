@@ -17,6 +17,11 @@ module Scalr
       exec command
     end
 
+    def execute_in_www_dir(remote_command )
+      return unless remote_command
+      execute("-t \"source /etc/profile.d/TTM.ENV.sh; if [[ -f /etc/profile.d/rvm.sh ]]; then source /etc/profile.d/rvm.sh; fi; cd /var/www; #{remote_command} \"")
+    end
+
     def execute_scp_in(download_path, local_path)
       unless download_path && local_path
         $stderr.puts("Cannot SCP: both download path (#{download_path}) and local path (#{local_path}) must be defined.")
