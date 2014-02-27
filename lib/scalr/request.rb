@@ -2,7 +2,7 @@ require 'uri'
 require 'hmac'
 require 'hmac-sha2'
 require 'base64'
-require 'net/https' 
+require 'net/https'
 require 'net/http'
 
 module Scalr
@@ -311,7 +311,7 @@ module Scalr
     end
 
     attr_accessor :inputs, :endpoint, :access_key, :signature
-    
+
     def initialize(action, endpoint, key_id, access_key, version, *arguments)
       set_inputs(action, arguments.flatten.first)
       @action_info = ACTIONS[action.to_sym]
@@ -319,10 +319,10 @@ module Scalr
       @endpoint = endpoint
       @access_key = access_key
     end
-    
+
     def process!
       set_signature!
-      
+
       uri = URI(@endpoint)
       http = Net::HTTP.new(uri.host, uri.port)
       #http.set_debug_output(Scalr.debug)  if Scalr.debug
@@ -341,9 +341,9 @@ module Scalr
       end
       Scalr::Response.new(response, response.body, @action_info, @inputs)
     end
-    
+
     private
-    
+
       def set_inputs(action, input_hash)
         input_hash ||= {}
         raise InvalidInputError.new unless input_hash.is_a? Hash
@@ -372,7 +372,7 @@ module Scalr
           @inputs[INPUTS[key]] = value # remove to_s from here because that serializes hashes weird, we do that in query_string
         end
       end
-      
+
       def query_string
         elements = @inputs.sort.flat_map do |key, value|
           if value.instance_of?(Hash)
@@ -389,13 +389,13 @@ module Scalr
       def pair_for_uri(key, value)
         [URI.escape(key.to_s), URI.escape(value.to_s)].join('=')
       end
-      
+
       def set_signature!
         string_to_sign = query_string.gsub('=','').gsub('&','')
         hmac = HMAC::SHA256.new(@access_key)
         hmac.update(string_to_sign)
         @signature = URI.escape(Base64.encode64(hmac.digest).chomp, Regexp.new("[^#{URI::PATTERN::UNRESERVED}]"))
       end
-      
+
   end
 end
