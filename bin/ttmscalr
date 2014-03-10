@@ -163,7 +163,7 @@ Main {
       ssh               - Use SSH to get a console on a server
       task              - Get information about a deployment task
       terminate         - Terminate a server (a cure-all for sick dynos)
-      terminate:sidekiq - Gracefully shuts down sidekiq
+      shutdown:sidekiq  - Gracefully shuts down sidekiq
       deploy:monitor    - [not done yet!] Monitor an existing deployment
   SYN
 
@@ -499,10 +499,10 @@ Main {
     end
   end
 
-  mode 'terminate:sidekiq' do
+  mode 'shutdown:sidekiq' do
     description 'Send the terminate signal to sidekiq roles on a farm and wait for completion'
 
-    examples "$ #{script_name} terminate-sidekiq -f dw-production"
+    examples "$ #{script_name} shutdown:sidekiq -f dw-production"
 
     argument 'target' do
       description 'Role or server to reset; use "all" to reset all non-database roles on a ' +
@@ -526,7 +526,7 @@ Main {
     end
 
     def run
-      print 'ARE YOU SURE YOU WANT TO TERMINATE SIDEKIQ? (yes to confirm) '
+      print 'ARE YOU SURE YOU WANT TO SHUTDOWN SIDEKIQ? (yes to confirm) '
       if $stdin.gets.downcase !~ /yes/
         puts '...as you wish. Good day!'
         Process::exit(1)
@@ -540,7 +540,7 @@ Main {
 
       target = params['target'].value
       roles = fetch_role_for_script(options, target)
-      print "Executing terminate for #{roles.length == 1 ? 'role' : 'roles'}: "
+      print "Executing shutdown for #{roles.length == 1 ? 'role' : 'roles'}: "
       puts roles.map {|role|
         alias_or_name = Scalr.first_alias('role', role.name) || role.name
         " #{alias_or_name} (ID: #{role.id})"
@@ -558,7 +558,7 @@ Main {
       puts "Script executed... polling for logs from #{server_count}."
       script_poll(servers: all_servers, script_name: params['script'].value,
                   script_time: script_time, farm_id: options[:farm_id],
-                  success: 'Sidekiq terminate successful', max_polls: 50)
+                  success: 'Sidekiq shutdown successful', max_polls: 50)
     end
   end
 
