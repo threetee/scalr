@@ -13,6 +13,7 @@ require 'scalr/caller'
 require 'scalr/deployer'
 require 'scalr/poller'
 require 'scalr/ssher'
+require 'scalr/relauncher'
 
 def script_name
   File.basename($0)
@@ -86,8 +87,8 @@ def script_poll(options)
   script_time = options[:script_time]
 
   logs = Scalr::Poller.
-      new(options[:farm_id], servers).
-      script_logs(script_name, script_time, options[:max_polls])
+    new(options[:farm_id], servers).
+    script_logs(script_name, script_time, options[:max_polls])
 
   exec_ok = logs.find_all {|log_item| log_item.success?}
   unless exec_ok.empty?
@@ -415,7 +416,7 @@ Main {
         puts 'No task records.'
       else
         puts Scalr::ResponseObject::DeploymentTaskItem.
-                 show_items(response.content).join("\n")
+               show_items(response.content).join("\n")
       end
     end
   end
@@ -430,7 +431,7 @@ Main {
 
     argument 'target' do
       description 'Role or server to reset; use "all" to reset all non-database roles on a ' +
-                  'farm and {role}.{index} pattern for individual instance.'
+                    'farm and {role}.{index} pattern for individual instance.'
     end
 
     option 'farm, -f' do
@@ -504,6 +505,28 @@ Main {
     end
   end
 
+  mode 'deploy:relaunch' do
+    description 'Deploys by relaunching all servers'
+
+    examples "$ #{script_name} farm production"
+
+    option 'farm, -f' do
+      argument :required
+      description 'Farm to deploy'
+    end
+
+    def run
+      response = dispatch(:farm_get_details, params)
+      return if generic_error(response)
+
+      options = Scalr::Caller.collect_options(params, [:farm_id])
+      roles = fetch_role_for_script(options, 'all')
+      deployer = Relauncher.new(options[:farm_id], roles)
+      deployer.launch
+    end
+  end
+
+
   mode 'shutdown:sidekiq' do
     description 'Send the terminate signal to sidekiq roles on a farm and wait for completion'
 
@@ -512,7 +535,7 @@ Main {
 
     argument 'target' do
       description 'Role or server to reset; use "all" to reset all non-database roles on a ' +
-                      'farm and {role}.{index} pattern for individual instance.'
+                    'farm and {role}.{index} pattern for individual instance.'
       default 'sidekiq'
     end
 
@@ -664,7 +687,7 @@ Main {
       to_display = display_all ? response.content : response.content.find_all {|log_item| log_item.failure?}
 
       puts Scalr::ResponseObject::ScriptLogItem.
-               show_items(to_display, expand_script, params['quiet'].value).join("\n")
+             show_items(to_display, expand_script, params['quiet'].value).join("\n")
     end
   end
 
@@ -687,7 +710,7 @@ Main {
         puts 'No log records'
       else
         puts Scalr::ResponseObject::LogItem.
-                 show_items(response.content, params['source'].value).join("\n")
+               show_items(response.content, params['source'].value).join("\n")
       end
     end
   end
@@ -782,9 +805,9 @@ Main {
       return if generic_error(application_response) || generic_error(source_response)
 
       sources = Scalr::ResponseObject::SourceItem.
-                    as_hash(source_response.content)
+        as_hash(source_response.content)
       puts Scalr::ResponseObject::Application.
-               show_items(application_response.content, sources).join("\n")
+             show_items(application_response.content, sources).join("\n")
     end
   end
 
@@ -884,7 +907,7 @@ Main {
       options = caller.collect_options(params)
       unless options[:farm_id]
         $stderr.puts "UNKNOWN FARM #{params['farm'].value}. You may need to remove your alias file " +
-                     "(#{Scalr::TTMAliasReader::DEFAULT_ALIAS_FILE}) and retry."
+                       "(#{Scalr::TTMAliasReader::DEFAULT_ALIAS_FILE}) and retry."
         return
       end
 
@@ -909,7 +932,7 @@ Main {
     examples "#{script_name} config:set TTM_FRUIT=ORANGE -f review",
              "#{script_name} config:set TTM_TIMEZONE_EXPERT=Carol TTM_REPORT_EXPERT=Greg -f review",
              "#{script_name} config:set my_config.txt -f production"
-             "#{script_name} config:set TTM_ANIMAL=unicorn -f production -r rails"
+    "#{script_name} config:set TTM_ANIMAL=unicorn -f production -r rails"
 
     option 'farm, -f' do
       argument :required
@@ -963,7 +986,7 @@ Main {
       return if generic_error(response)
 
       puts Scalr::ResponseObject::Script.
-               show_items(response.content).reverse.join("\n")
+             show_items(response.content).reverse.join("\n")
     end
   end
 
@@ -979,7 +1002,7 @@ Main {
       return if generic_error(response)
 
       puts Scalr::ResponseObject::ScriptSummary.
-               show_items(response.content, params['display_all'].value).join("\n")
+             show_items(response.content, params['display_all'].value).join("\n")
     end
   end
 
@@ -1243,9 +1266,9 @@ Main {
         end
       else
         similar_pairs = response.content.
-            find_all {|var| var.name_matches?(/^TTM.+URL$/)}.
-            map{|var| var.to_s}.
-            join("\n  ")
+          find_all {|var| var.name_matches?(/^TTM.+URL$/)}.
+          map{|var| var.to_s}.
+          join("\n  ")
         $stderr.puts <<-MISSING.gsub(/^ {10}/, '')
           DB CONFIG NOT FOUND!
 
