@@ -292,7 +292,28 @@ Main {
                     script_time: script_time, farm_id: options[:farm_id],
                     success: 'Update successful', max_polls: 50)
       end
+    end
+  end
 
+  mode 'deploy:relaunch' do
+    description 'Deploys by relaunching all servers'
+
+    examples "$ #{script_name} farm production"
+
+    option 'farm, -f' do
+      argument :required
+      description 'Farm to deploy'
+    end
+
+    def run
+      response = dispatch(:farm_get_details, params)
+      return if generic_error(response)
+
+      options = Scalr::Caller.collect_options(params, [:farm_id])
+      roles = fetch_role_for_script(options, 'all')
+      deployer = Relauncher.new(options[:farm_id], roles)
+      deployer.launch
+      deployer.monitor
     end
   end
 
@@ -504,28 +525,6 @@ Main {
                   success: 'Hard reset successful', max_polls: 50)
     end
   end
-
-  mode 'deploy:relaunch' do
-    description 'Deploys by relaunching all servers'
-
-    examples "$ #{script_name} farm production"
-
-    option 'farm, -f' do
-      argument :required
-      description 'Farm to deploy'
-    end
-
-    def run
-      response = dispatch(:farm_get_details, params)
-      return if generic_error(response)
-
-      options = Scalr::Caller.collect_options(params, [:farm_id])
-      roles = fetch_role_for_script(options, 'all')
-      deployer = Relauncher.new(options[:farm_id], roles)
-      deployer.launch
-    end
-  end
-
 
   mode 'shutdown:sidekiq' do
     description 'Send the terminate signal to sidekiq roles on a farm and wait for completion'
