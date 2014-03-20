@@ -17,8 +17,7 @@ end
 class ReplacementStatus
   attr_accessor :running, :booting
 
-  def initialize(role, running, booting)
-    @role = role
+  def initialize(running, booting)
     @running = running
     @booting = booting
   end
@@ -29,7 +28,7 @@ class Relauncher
     @roles = roles
     @farm_id = farm_id
     @replacements = {}
-    @roles = roles
+    @replacement_status = {}
   end
 
   def launch
@@ -44,11 +43,6 @@ class Relauncher
       @replacements.store(role.id, launched_servers)
       break
     end
-    puts "Launched - #{@replacements}"
-  end
-
-  def update_role_status
-
   end
 
   def monitor
@@ -56,18 +50,35 @@ class Relauncher
 
     while pending
       pending = false
-      @replacements.each do |role, servers|
+      @replacements.each do |role , servers|
+        update_replacement_status
+
+        @replacement_status.each { |role_id, status|
+          puts "Role #{role_id} - Running #{status.running} - Booting #{status.booting}"
+        }
+
         pending_servers = servers.select { |s| s.status != :Running }
         if pending_servers.length > 0
           update_launch_status
           pending = true
           next
         end
+        sleep 15
       end
     end
   end
 
   private
+
+  def update_replacement_status
+    @replacement_status = {}
+    @replacements.each do |role, servers|
+      pending_servers = servers.select { |s| s.status != :Running }
+      running_servers = servers.select { |s| s.status == :Running }
+      stat = ReplacementStatus.new(running_servers.length, pending_servers.length)
+      @replacement_status.store(role, stat)
+    end
+  end
 
   def update_launch_status
     farm_status = get_farm_status
@@ -78,7 +89,6 @@ class Relauncher
         replacement_servers.each { |replacement|
           server = servers.select { |x| x.id == replacement.server_id }
           replacement.status = server[0].status.to_sym
-          puts "#{replacement.target} - #{replacement.name} -> #{server[0].id} -> #{server[0].status}"
         }
       end
     }
