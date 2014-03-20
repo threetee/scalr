@@ -2,6 +2,17 @@ require 'scalr'
 require 'scalr/caller'
 require 'pry'
 
+class ReplacementServer
+  attr_accessor :status
+  attr_reader :server_id, :target
+
+  def initialize(target, server_id)
+    @target = target
+    @server_id = server_id
+    @status = :pending
+  end
+end
+
 class Relauncher
   def initialize(farm_id, roles)
     @roles = roles
@@ -12,13 +23,13 @@ class Relauncher
 
   def launch
     @roles.each { |role|
-      launch_ids = []
+      launched_servers = []
       role.servers.each { |server|
         response = perform_launch({:farm_id => @farm_id, :farm_role_id => role.id})
-        launch_ids << {:target_id => server.id, :replacement_id => response.content}
+        launched_servers << ReplacementServer.new(server.id, response.content)
         break
       }
-      @replacements.store(role.id, launch_ids)
+      @replacements.store(role.id, launched_servers)
       break
     }
     puts "Launched - #{@replacements}"
@@ -29,11 +40,13 @@ class Relauncher
 
     farm_status.each { |role|
       servers = role.servers
-      replacement_ids = @replacements[role.id]
-      replacement_ids.each { |replacement|
-        server = servers.select { |x| x.id == replacement[:replacement_id] }
-        puts "#{replacement[:target_id]} -> #{server[0].id} -> #{server[0].status}"
-      }
+      replacement_servers = @replacements[role.id]
+      if replacement_servers
+        replacement_servers.each { |replacement|
+          server = servers.select { |x| x.id == replacement.server_id }
+          puts "#{replacement.target} -> #{server[0].id} -> #{server[0].status}"
+        }
+      end
     }
   end
 
