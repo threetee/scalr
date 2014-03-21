@@ -1,9 +1,9 @@
 require 'scalr'
 require 'scalr/caller'
-require 'pry'
+require 'scalr/check_online_status'
 
 class ReplacementServer
-  attr_accessor :status
+  attr_accessor :status, :ip, :ok_to_terminate
   attr_reader :server_id, :target, :name
 
   def initialize(target, server_id, name)
@@ -11,6 +11,8 @@ class ReplacementServer
     @server_id = server_id
     @status = :Pending
     @name = name
+    @ip = ''
+    @ok_to_terminate = false
   end
 end
 
@@ -46,6 +48,14 @@ class Relauncher
   end
 
   def monitor
+    monitor_boot_status
+    status_checker = CheckOnlineStatus.new(@replacements, '/users/sign_in')
+    status_checker.check
+  end
+
+  private
+
+  def monitor_boot_status
     pending = true
 
     while pending
@@ -61,14 +71,12 @@ class Relauncher
         if pending_servers.length > 0
           update_launch_status
           pending = true
+          sleep 30
           next
         end
-        sleep 15
       end
     end
   end
-
-  private
 
   def update_replacement_status
     @replacement_status = {}
@@ -89,6 +97,7 @@ class Relauncher
         replacement_servers.each { |replacement|
           server = servers.select { |x| x.id == replacement.server_id }
           replacement.status = server[0].status.to_sym
+          replacement.ip = server[0].external_ip
         }
       end
     }
