@@ -6,11 +6,11 @@ class ReplacementServer
   attr_accessor :status, :ip, :ok_to_terminate
   attr_reader :server_id, :target, :name
 
-  def initialize(target, server_id, name)
+  def initialize(target, server_id, target_name)
     @target = target
     @server_id = server_id
     @status = :Pending
-    @name = name
+    @target_name = target_name
     @ip = ''
     @ok_to_terminate = false
   end
@@ -38,8 +38,8 @@ class Relauncher
       launched_servers = []
       role.servers.each do |server|
         response = perform_launch({:farm_id => @farm_id, :farm_role_id => role.id})
-        name = sprintf("%s-%s", role.name, server.index)
-        launched_servers << ReplacementServer.new(server.id, response.content, name)
+        target_name = sprintf("%s-%s", role.name, server.index)
+        launched_servers << ReplacementServer.new(server.id, response.content, target_name)
         break
       end
       @replacements.store(role.id, launched_servers)

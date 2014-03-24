@@ -1,5 +1,4 @@
 require 'HTTParty'
-require 'pry'
 
 class CheckOnlineStatus
 
@@ -14,11 +13,12 @@ class CheckOnlineStatus
       pending = false
       @roles.each do |role, servers|
         servers_to_check = servers.select { |s| ! s.ok_to_terminate }
-        if servers_to_check
+        unless servers_to_check.empty?
           check_servers(servers_to_check)
           pending = true
         end
       end
+      sleep 15
     end
   end
 
