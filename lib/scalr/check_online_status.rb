@@ -27,15 +27,23 @@ class CheckOnlineStatus
   def check_servers(servers_to_check)
     servers_to_check.each do |server|
       puts "Checking Server #{server.ip}"
-      begin
-        response = HTTParty.get("http://#{server.ip}#{@resource}")
-        if response =~ /Welcome to Think Through Math/
-          server.ok_to_terminate = true
-          puts "Ready to terminate #{server.ip}"
-        end
-      rescue
-        server.ok_to_terminate = false
+      if server.name =~ /RailsAppServer/
+        http_check(server)
+      else
+        server.ok_to_terminate = true
       end
+    end
+  end
+
+  def http_check(server)
+    begin
+      response = HTTParty.get("http://#{server.ip}#{@resource}")
+      if response =~ /Welcome to Think Through Math/
+        server.ok_to_terminate = true
+        puts "Ready to terminate #{server.ip}"
+      end
+    rescue
+      server.ok_to_terminate = false
     end
   end
 
