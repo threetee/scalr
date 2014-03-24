@@ -45,13 +45,13 @@ class Relauncher
     @roles.each do |role|
       launched_servers = []
       role.servers.each do |server|
-        response = perform_launch({:farm_id => @farm_id, :farm_role_id => role.id})
-        target_name = sprintf("%s-%s", role.name, server.index)
-        launched_servers << ReplacementServer.new(server.id, response.content, target_name)
-        break
+        if server.status == 'Running'
+          response = perform_launch({:farm_id => @farm_id, :farm_role_id => role.id, :increase_max_instances => true})
+          target_name = sprintf("%s-%s", role.name, server.index)
+          launched_servers << ReplacementServer.new(server.id, response.content, target_name)
+        end
       end
       @replacements.store(role.id, launched_servers)
-      break
     end
   end
 
@@ -64,6 +64,7 @@ class Relauncher
   def terminate
     @replacements.each { |role, servers|
       servers.each { |server|
+        puts "Terminating: #{server.target_name}"
         perform_terminate({:farm_id => @farm_id, :server_id => server.server_id, :decrease_min_instances_setting => true})
       }
     }
@@ -107,7 +108,7 @@ class Relauncher
     farm_status.each { |role|
       servers = role.servers
       replacement_servers = @replacements[role.id]
-      if replacement_servers
+      unless replacement_servers.empty?
         replacement_servers.each { |replacement|
           server = servers.select { |x| x.id == replacement.server_id }
           replacement.status = server[0].status.to_sym
