@@ -18,7 +18,7 @@ class CheckOnlineStatus
           pending = true
         end
       end
-      sleep 15
+      sleep 30
     end
   end
 

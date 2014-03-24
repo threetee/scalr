@@ -312,8 +312,7 @@ Main {
       options = Scalr::Caller.collect_options(params, [:farm_id])
       roles = fetch_role_for_script(options, 'all')
       deployer = Relauncher.new(options[:farm_id], roles)
-      deployer.launch
-      deployer.monitor
+      deployer.relaunch
     end
   end
 

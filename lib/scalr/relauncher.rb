@@ -33,6 +33,14 @@ class Relauncher
     @replacement_status = {}
   end
 
+  def relaunch
+    launch
+    monitor
+    terminate
+  end
+
+  private
+
   def launch
     @roles.each do |role|
       launched_servers = []
@@ -53,7 +61,13 @@ class Relauncher
     status_checker.check
   end
 
-  private
+  def terminate
+    @replacements.each { |role, servers|
+      servers.each { |server|
+        perform_terminate({:farm_id => @farm_id, :server_id => server.server_id, :decrease_min_instances_setting => true})
+      }
+    }
+  end
 
   def monitor_boot_status
     pending = true
@@ -101,6 +115,10 @@ class Relauncher
         }
       end
     }
+  end
+
+  def perform_terminate(options)
+    invoke(:server_terminate, options)
   end
 
   def perform_launch(options)
