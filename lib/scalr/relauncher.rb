@@ -17,11 +17,12 @@ class ReplacementServer
 end
 
 class ReplacementStatus
-  attr_accessor :running, :booting
+  attr_accessor :running, :booting, :failed
 
-  def initialize(running, booting)
+  def initialize(running, booting, failed)
     @running = running
     @booting = booting
+    @failed = failed
   end
 end
 
@@ -70,6 +71,21 @@ class Relauncher
     }
   end
 
+  def update_launch_status
+    farm_status = get_farm_status
+    farm_status.each { |role|
+      servers = role.servers
+      replacement_servers = @replacements[role.id]
+      unless replacement_servers.empty?
+        replacement_servers.each do |replacement|
+          server = servers.select { |x| x.id == replacement.server_id }
+          replacement.status = server[0].status.to_sym
+          replacement.ip = server[0].external_ip
+        end
+      end
+    }
+  end
+
   def monitor_boot_status
     pending = true
 
@@ -79,10 +95,10 @@ class Relauncher
         update_replacement_status
 
         @replacement_status.each { |role_id, status|
-          puts "Role #{role_id} - Running #{status.running} - Booting #{status.booting}"
+          puts "Role #{role_id} - Running #{status.running} - Booting #{status.booting} - Failed #{status.failed}"
         }
 
-        pending_servers = servers.select { |s| s.status != :Running }
+        pending_servers = servers.select { |s| s.status != :Running && s.status != :Failed }
         if pending_servers.length > 0
           update_launch_status
           pending = true
@@ -96,26 +112,12 @@ class Relauncher
   def update_replacement_status
     @replacement_status = {}
     @replacements.each do |role, servers|
-      pending_servers = servers.select { |s| s.status != :Running }
+      pending_servers = servers.select { |s| s.status == :Pending || s.status == :Initializing }
       running_servers = servers.select { |s| s.status == :Running }
-      stat = ReplacementStatus.new(running_servers.length, pending_servers.length)
+      failed_servers = servers.select { |s| s.status == :Failed }
+      stat = ReplacementStatus.new(running_servers.length, pending_servers.length, failed_servers.length)
       @replacement_status.store(role, stat)
     end
-  end
-
-  def update_launch_status
-    farm_status = get_farm_status
-    farm_status.each { |role|
-      servers = role.servers
-      replacement_servers = @replacements[role.id]
-      unless replacement_servers.empty?
-        replacement_servers.each { |replacement|
-          server = servers.select { |x| x.id == replacement.server_id }
-          replacement.status = server[0].status.to_sym
-          replacement.ip = server[0].external_ip
-        }
-      end
-    }
   end
 
   def perform_terminate(options)
