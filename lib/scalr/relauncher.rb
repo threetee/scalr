@@ -39,13 +39,24 @@ class Relauncher
   end
 
   def relaunch
-    Curses.noecho
-    Curses.init_screen
-    launch
-    monitor
-    terminate
-    Curses.getch
-    Curses.close_screen
+
+    begin
+      Curses.noecho
+      Curses.init_screen
+      launch
+      monitor
+      terminate
+
+      Curses.setpos(@replacement_status.length + 2, 0)
+      Curses.addstr(': ')
+      quit = ''
+      until quit == 'Q' do
+        quit = Curses.getch
+      end
+    ensure
+      Curses.close_screen
+    end
+
   end
 
   private
@@ -73,7 +84,7 @@ class Relauncher
   def terminate
     @replacements.each { |role, servers|
       servers.each { |server|
-        perform_terminate({:farm_id => @farm_id, :server_id => target.server_id, :decrease_min_instances_setting => true})
+        perform_terminate({:farm_id => @farm_id, :server_id => server.target, :decrease_min_instances_setting => true})
         @replacement_status[role].terminated += 1
         print_replacement_status
       }
