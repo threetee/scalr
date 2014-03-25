@@ -142,9 +142,11 @@ Main {
       config:set        - Assign one or more configuration pairs to a farm
       deploy            - Deploy an application
       deploy:rolling    - Deploys to one server at a time in the farm.
+      deploy:relaunch   - Deploys by launching new servers to replace the existing ones. Use with caution due to resource limits. PGSQL, Redis etc...
       deploy:cleanup    - Cleanup a lock left behind by a failed application deploy
       deploy:migrate    - Run a db:migrate for a deployed application on a farm
       deploy:tasks      - List deployment tasks
+      deploy:monitor    - [not done yet!] Monitor an existing deployment
       exterminate       - Good times
       farm              - List roles in a farm
       farm:list         - List farms
@@ -165,7 +167,6 @@ Main {
       task              - Get information about a deployment task
       terminate         - Terminate a server (a cure-all for sick dynos)
       shutdown:sidekiq  - Gracefully shuts down sidekiq
-      deploy:monitor    - [not done yet!] Monitor an existing deployment
   SYN
 
   ########## Deployment
@@ -296,9 +297,9 @@ Main {
   end
 
   mode 'deploy:relaunch' do
-    description 'Deploys by relaunching all servers'
+    description 'Deploys by launching new servers to replace the current ones.'
 
-    examples "$ #{script_name} farm production"
+    examples "$ #{script_name} deploy:relaunch -f production"
 
     option 'farm, -f' do
       argument :required
