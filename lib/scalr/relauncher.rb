@@ -84,8 +84,10 @@ class Relauncher
   def terminate
     @replacements.each { |role, servers|
       servers.each { |server|
-        perform_terminate({:farm_id => @farm_id, :server_id => server.target, :decrease_min_instances_setting => true})
-        @replacement_status[role].terminated += 1
+        if server.status != :Failed
+          perform_terminate({:farm_id => @farm_id, :server_id => server.target, :decrease_min_instances_setting => true})
+          @replacement_status[role].terminated += 1
+        end
         print_replacement_status
       }
     }
@@ -99,7 +101,11 @@ class Relauncher
       if replacement_servers && ! replacement_servers.empty?
         replacement_servers.each do |replacement|
           server = servers.select { |x| x.id == replacement.server_id }
-          replacement.status = server[0].status.to_sym
+          if server[0].isinitfailed == "1"
+            replacement.status = :Failed
+          else
+            replacement.status = server[0].status.to_sym
+          end
           replacement.ip = server[0].external_ip
         end
       end
@@ -130,7 +136,7 @@ class Relauncher
     screen_index = 1
     @replacement_status.each { |role_id, status|
       Curses.setpos(screen_index,0)
-      Curses.addstr("Role #{role_id} - Booting #{status.booting} - Running #{status.running} - Checking #{status.checking} - Terminate Ready #{status.terminate_ready} - Terminated #{status.terminated}")
+      Curses.addstr("Role #{role_id} - Booting #{status.booting} - Failed #{status.failed} - Running #{status.running} - Checking #{status.checking} - Terminate Ready #{status.terminate_ready} - Terminated #{status.terminated}")
       screen_index += 1
       Curses.refresh
     }

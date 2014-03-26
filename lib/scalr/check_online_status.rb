@@ -15,7 +15,7 @@ class CheckOnlineStatus
       pending = false
       @update_callback.call
       @roles.each do |role, servers|
-        servers_to_check = servers.select { |s| ! s.ok_to_terminate }
+        servers_to_check = servers.select { |s| ! s.ok_to_terminate && s.status != :Failed }
         if servers_to_check.length > 0
           @replacement_status[role].checking = 'Yes '
           check_servers(@replacement_status[role], servers_to_check)
@@ -32,11 +32,13 @@ class CheckOnlineStatus
 
   def check_servers(role_status, servers_to_check)
     servers_to_check.each do |server|
-      if server.target_name =~ /RailsAppServer/
-        http_check(role_status, server)
-      else
-        server.ok_to_terminate = true
-        role_status.terminate_ready += 1
+      if server.status != :Failed
+        if server.target_name =~ /RailsAppServer/
+          http_check(role_status, server)
+        else
+          server.ok_to_terminate = true
+          role_status.terminate_ready += 1
+        end
       end
     end
   end

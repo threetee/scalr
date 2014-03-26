@@ -478,7 +478,7 @@ module Scalr
       end
     end
 
-    class Server < StructWithOptions.new(:id, :external_ip, :internal_ip, :status,
+    class Server < StructWithOptions.new(:id, :external_ip, :internal_ip, :status, :isinitfailed,
                                          :index, :uptime, :platform_properties)
       def self.components
         { platformproperties: {name: :platform_properties, clazz: Scalr::ResponseObject::Platform} }
