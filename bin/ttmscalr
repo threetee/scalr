@@ -1158,7 +1158,10 @@ Main {
     end
 
     def run
-      params['server'] = Value.new('debug.1')
+      options = Scalr::Caller.collect_options(params, [:farm_id])
+      exec_role = fetch_role_for_script(options,'debug')
+      role_index = exec_role.first[:servers].first[:index]
+      params['server'] = Value.new("debug.#{role_index}")
       command = params['command'].value
       ssher = Scalr::Ssher.new(params)
       ssher.execute_in_www_dir(command)
