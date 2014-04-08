@@ -1143,7 +1143,7 @@ Main {
   end
 
   mode 'run' do
-    description 'Generate SSH command to execute any command a farm.'
+    description 'Generate SSH command to execute any command on a devDebug server for a farm.'
 
     examples "#{script_name} run -f review -c \"rails console\""
 
