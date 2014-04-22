@@ -115,6 +115,7 @@ module Scalr
                monitor.summaries.join("\n")
         end
       end
+      exit 1 unless all_ok
     end
 
   private
