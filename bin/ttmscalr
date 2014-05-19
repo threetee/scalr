@@ -21,7 +21,7 @@ end
 unless Scalr.read_access_info
   puts <<-CONF
   CONFIGURATION ERROR: You do not have available Scalr access credentials. Please
-  read 'Scalr API credentials' in #{bin_path}/README.md.
+  read 'Scalr API credentials' in #{bin_path.dirname}/README.md.
 
   Called with: #{script_name} #{ARGV.join(' ')}
   CONF
