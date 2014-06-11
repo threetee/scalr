@@ -425,7 +425,8 @@ Main {
 
     examples "$ #{script_name} restart rails.2 -f production",
              "$ #{script_name} restart rails -f production",
-             "$ #{script_name} restart all -f review"
+             "$ #{script_name} restart all -f review",
+             "$ #{script_name} restart all -f review --certain"
 
     argument 'target' do
       description 'Role or server to reset; use "all" to reset all non-database roles on a ' +
@@ -435,6 +436,10 @@ Main {
     option 'farm, -f' do
       argument :required
       description 'Farm with role or server to reset'
+    end
+
+    option 'certain' do
+      description 'true: Yes, I am certain that I want to restart; false (default): ask me if I REALLY want to restart.'
     end
 
     option 'server, -s' do
@@ -453,7 +458,7 @@ Main {
 
     def run
       print 'ARE YOU SURE YOU WANT TO RESTART SERVICES? (yes to confirm) '
-      if $stdin.gets.downcase !~ /yes/
+      if !params['certain'].value && $stdin.gets.downcase !~ /yes/
         puts '...as you wish. Good day!'
         Process::exit(1)
       end
