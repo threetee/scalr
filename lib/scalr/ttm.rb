@@ -106,7 +106,7 @@ module Scalr
     h = {}
     File.readlines(filename).each do |line|
       key, value = line.strip.split(/\s*=\s*/, 2)
-      h[key.downcase.to_sym] = value
+      h[key.downcase.to_sym] = value if key
     end
     h
   end
