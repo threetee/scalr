@@ -508,6 +508,7 @@ Main {
     description 'Send the terminate signal to sidekiq roles on a farm and wait for completion'
 
     examples "$ #{script_name} shutdown:sidekiq -f dw-production"
+    examples "$ #{script_name} shutdown:sidekiq -f dw-production --certain"
 
     argument 'target' do
       description 'Role or server to reset; use "all" to reset all non-database roles on a ' +
@@ -518,6 +519,10 @@ Main {
     option 'farm, -f' do
       argument :required
       description 'Farm with role or server to reset'
+    end
+
+    option 'certain' do
+      description 'true: Yes, I am certain that I want to shutdown sidekiq; false (default): ask me if I REALLY want to shutdown sidekiq'
     end
 
     option 'script' do
@@ -532,7 +537,7 @@ Main {
 
     def run
       print 'ARE YOU SURE YOU WANT TO SHUTDOWN SIDEKIQ? (yes to confirm) '
-      if $stdin.gets.downcase !~ /yes/
+      if !params['certain'].value && $stdin.gets.downcase !~ /yes/
         puts '...as you wish. Good day!'
         Process::exit(1)
       end
