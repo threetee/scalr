@@ -187,6 +187,7 @@ module Scalr
       end
 
       def self.build(data)
+        data[:name] = data[:alias]
         obj = super(data)
         if obj
           obj.servers = self.translate_array(data[:serverset], Scalr::ResponseObject::Server)
