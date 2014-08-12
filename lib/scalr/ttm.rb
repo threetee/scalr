@@ -41,19 +41,17 @@ module Scalr
                 "15359": ["Prod-DB-Shard3", "shard3"],
                 "15360": ["Prod-DB-Shard4", "shard4"],
                 "14498": ["Production", "ttm-production"],
-                "15163": ["DB-Test"],
-                "15274": ["PG-TEST"],
                 "15275": ["Review", "ttm-review", "ttm-staging"],
-                "15331": ["Winters"],
                 "15596": ["RC"],
                 "15597": ["lab", "apangea"],
-                "15548": ["DW-2013"],
+                "19975": ["DW-production", "DW", "DW-prod", "dw-prod"],
+                "15548": ["DW-2013-2014", "DW14", "DW-13-14"],
                 "15971": ["DW-staging", "DW-staging", "dw-staging"],
+                "19801": ["DW-staging-lab", "DW-lab",],
                 "15898": ["Dev"],
                 "15944": ["Jenkins"],
-                "18101": ["DW-Rebuild", "dw-rebuild"],
-                "19801": ["DW-lab", "dw-lab"],
-                "19975": ["DW-production", "DW", "DW-prod", "dw-prod"]
+                "19759": ["Solr"],
+                "19175": ["MathJS"]
               },
               "role": {
                 "RailsAppServer" : ["rails", "web"],
@@ -63,9 +61,15 @@ module Scalr
                 "Reports"        : ["reports"],
                 "DevDebug"       : ["debug"],
                 "PGSQL-9-2"      : ["pg", "pgsql", "psql"],
+                "PGSQL-9-2-HVM"  : ["pg", "pgsql", "psql"],
+                "PGSQL-9-2-2-HVM-Warehouse" : ["pg", "pgsql", "psql"],
                 "DataLoad"       : ["dl", "dataload"],
                 "Jenkins"        : ["JenkinsM", "jenkins", "master"],
-                "JenkinsSlave"   : ["jenkinsslave", "slave"]
+                "JenkinsSlave"   : ["jenkinsslave", "slave"],
+                "lb-nginx64-TTM" : ["lb"],
+                "NodeAppServer"  : ["node"],
+                "Solr"           : ["solr"]
+
               },
               "application": {
                 "968":  ["production", "master"],
