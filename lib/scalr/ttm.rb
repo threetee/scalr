@@ -47,10 +47,13 @@ module Scalr
                 "15331": ["Winters"],
                 "15596": ["RC"],
                 "15597": ["lab", "apangea"],
-                "15548": ["DW-production", "DW", "DW-prod", "dw-prod"],
+                "15548": ["DW-2013"],
                 "15971": ["DW-staging", "DW-staging", "dw-staging"],
                 "15898": ["Dev"],
-                "15944": ["Jenkins"]
+                "15944": ["Jenkins"],
+                "18101": ["DW-Rebuild", "dw-rebuild"],
+                "19801": ["DW-lab", "dw-lab"],
+                "19975": ["DW-production", "DW", "DW-prod", "dw-prod"]
               },
               "role": {
                 "RailsAppServer" : ["rails", "web"],
