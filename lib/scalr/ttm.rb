@@ -35,11 +35,13 @@ module Scalr
           out.puts <<-DEFAULTALIASES.gsub(/^ {12}/, '')
             {
               "farm": {
-                "15356": ["Prod-DB-Primary", "master"],
-                "15357": ["Prod-DB-Shard1", "shard1"],
-                "15358": ["Prod-DB-Shard2", "shard2"],
-                "15359": ["Prod-DB-Shard3", "shard3"],
-                "15360": ["Prod-DB-Shard4", "shard4"],
+                "20026": ["Prod-DB", "master"],
+                "20027": ["Prod-DB-Enrollments", "enrollments", "shard1"],
+                "15356": ["Prod-DB-Master", "old-master"],
+                "15357": ["Prod-DB-Shard1", "old-shard1"],
+                "15358": ["Prod-DB-Shard2", "old-shard2"],
+                "15359": ["Prod-DB-Shard3", "old-shard3"],
+                "15360": ["Prod-DB-Shard4", "old-shard4"],
                 "14498": ["Production", "ttm-production"],
                 "15275": ["Review", "ttm-review", "ttm-staging"],
                 "15596": ["RC"],
@@ -62,6 +64,7 @@ module Scalr
                 "DevDebug"       : ["debug"],
                 "PGSQL-9-2"      : ["pg", "pgsql", "psql"],
                 "PGSQL-9-2-HVM"  : ["pg", "pgsql", "psql"],
+                "PGSQL-9-2-HVM-HiMEM"  : ["pg", "pgsql", "psql"],
                 "PGSQL-9-2-2-HVM-Warehouse" : ["pg", "pgsql", "psql"],
                 "DataLoad"       : ["dl", "dataload"],
                 "Jenkins"        : ["JenkinsM", "jenkins", "master"],
