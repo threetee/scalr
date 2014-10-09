@@ -1186,7 +1186,8 @@ Main {
              "$ #{script_name} psql enrollments -f production",
              "$ #{script_name} psql one -f production",
              "$ #{script_name} psql master:slave -f production",
-             "$ #{script_name} psql four -f production --url"
+             "$ #{script_name} psql four -f production --url",
+             "$ #{script_name} psql 1 -f production --dump > pg.dump"
 
     argument 'db' do
       arity 1
@@ -1206,6 +1207,10 @@ Main {
       description 'true if you want to output a URL, false (default) to include "psql" in the output'
     end
 
+    option 'dump' do
+      description 'true if you want to take a database backup. The output will go to STDOUT, so you probably want to pipe this to a file.'
+    end
+
     def run
       response = dispatch(:global_variables_list, params)
       return if generic_error(response)
@@ -1218,6 +1223,10 @@ Main {
         external_url = scrub_database_url(pair.value, is_slave)
         if params['url'].value
           print external_url
+        elsif params['dump'].value
+          command =  "pg_dump --no-password --clean --no-owner --format c #{external_url}"
+          puts "Executing `#{command}`"
+          exec command
         else
           command =  "psql #{external_url}"
           puts "Executing `#{command}`"
