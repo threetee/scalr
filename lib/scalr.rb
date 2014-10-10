@@ -1,4 +1,5 @@
 require 'rubygems'
+require 'active_support'
 require 'active_support/core_ext'
 
 require File.dirname(__FILE__) + '/scalr/response'
