@@ -219,7 +219,7 @@ module Scalr
           return filter_by_running(->(server) {server_spec == server.id})
         end
         index = -1
-        if match_info = server_spec.match(/^(\w+)\.(\d+)$/)
+        if match_info = server_spec.match(/^([\w-]+)\.(\d+)$/)
           role_name = match_info[1]
           index = match_info[2].to_i if Scalr.is_alias?('role', name, role_name)
         elsif server_spec.match(/^\d+$/)
