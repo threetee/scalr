@@ -35,25 +35,24 @@ module Scalr
           out.puts <<-DEFAULTALIASES.gsub(/^ {12}/, '')
             {
               "farm": {
-                "15356": ["Prod-DB-Primary", "master"],
-                "15357": ["Prod-DB-Shard1", "shard1"],
-                "15358": ["Prod-DB-Shard2", "shard2"],
-                "15359": ["Prod-DB-Shard3", "shard3"],
-                "15360": ["Prod-DB-Shard4", "shard4"],
+                "20026": ["Prod-DB", "master"],
+                "20027": ["Prod-DB-Enrollments", "enrollments", "shard1"],
                 "14498": ["Production", "ttm-production"],
-                "15163": ["DB-Test"],
-                "15274": ["PG-TEST"],
                 "15275": ["Review", "ttm-review", "ttm-staging"],
-                "15331": ["Winters"],
                 "15596": ["RC"],
                 "15597": ["lab", "apangea"],
-                "15548": ["DW-2013"],
+                "19975": ["DW-production", "DW", "DW-prod", "dw-prod"],
+                "15548": ["DW-2013-2014", "DW13", "DW-13-14"],
                 "15971": ["DW-staging", "DW-staging", "dw-staging"],
+                "19801": ["DW-staging-lab", "DW-lab",],
+                "20277": ["DW-Staging-Review", "dw-review"],
+                "20278": ["DW-Staging-Dev", "dw-dev"],
                 "15898": ["Dev"],
                 "15944": ["Jenkins"],
-                "18101": ["DW-Rebuild", "dw-rebuild"],
-                "19801": ["DW-lab", "dw-lab"],
-                "19975": ["DW-production", "DW", "DW-prod", "dw-prod"]
+                "19759": ["Solr"],
+                "19175": ["MathJS"],
+                "20464": ["QA"],
+                "20470": ["DW-Staging-QA", "dw-qa"]
               },
               "role": {
                 "RailsAppServer" : ["rails", "web"],
@@ -65,7 +64,11 @@ module Scalr
                 "PGSQL-9-2"      : ["pg", "pgsql", "psql"],
                 "DataLoad"       : ["dl", "dataload"],
                 "Jenkins"        : ["JenkinsM", "jenkins", "master"],
-                "JenkinsSlave"   : ["jenkinsslave", "slave"]
+                "JenkinsSlave"   : ["jenkinsslave", "slave"],
+                "lb-nginx64-TTM" : ["lb"],
+                "NodeAppServer"  : ["node"],
+                "Solr"           : ["solr"]
+
               },
               "application": {
                 "968":  ["production", "master"],
