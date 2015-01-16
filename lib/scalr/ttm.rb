@@ -44,7 +44,7 @@ module Scalr
                 "19975": ["DW-production", "DW", "DW-prod", "dw-prod"],
                 "15548": ["DW-2013-2014", "DW13", "DW-13-14"],
                 "15971": ["DW-staging", "DW-staging", "dw-staging"],
-                "19801": ["DW-staging-lab", "DW-lab",],
+                "19801": ["DW-staging-lab", "DW-lab"],
                 "20277": ["DW-Staging-Review", "dw-review"],
                 "20278": ["DW-Staging-Dev", "dw-dev"],
                 "15898": ["Dev"],
