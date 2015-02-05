@@ -1155,7 +1155,13 @@ Main {
   mode 'run' do
     description 'Generate SSH command to execute any command on a devDebug server for a farm.'
 
-    examples "#{script_name} run -f review -c \"rails console\""
+    examples "#{script_name} run -f review -c \"rails console\",
+              #{script_name} run sidekiq.1 -f review -c \"rails console\""
+
+    argument 'server' do
+      optional
+      description 'Server index to use with role, or "role.index" name (e.g., "rails.2")'
+    end
 
     option 'farm, -f' do
       argument :required
@@ -1169,9 +1175,12 @@ Main {
 
     def run
       options = Scalr::Caller.collect_options(params, [:farm_id])
-      exec_role = fetch_role_for_script(options,'debug')
-      role_index = exec_role.first[:servers].first[:index]
-      params['server'] = Value.new("debug.#{role_index}")
+      if params['server'].value.nil?
+        exec_role = fetch_role_for_script(options,'debug')
+        role_index = exec_role.first[:servers].first[:index]
+        params['server'].value = "debug.#{role_index}"
+      end
+
       command = params['command'].value
       ssher = Scalr::Ssher.new(params)
       ssher.execute_in_www_dir(command)
