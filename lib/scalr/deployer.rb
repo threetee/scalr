@@ -30,15 +30,16 @@ module Scalr
       @verbose && puts("Starting #{@monitors.length} monitors...")
 
       if @new_deploy
+        restart_option = @hard_restart ? 'r' : ''
+        options_string = "-a aws-#{@application_name.downcase} -il#{restart_option} -k #{deployment_key}"
+
         # execute the script for entire farm, then poll for results
         script_options = {
           farm_id:            @farm_id,
           script_id:          @script_id,
           timeout:            1200,
           config_variables:   {
-            restart_on_deploy:  @hard_restart ? 'true' : 'false',
-            my_app:             @application_name,
-            deployment_key:     deployment_key
+            script_options: options_string
           }
         }
         script_result = Scalr::Caller.new(:script_execute).invoke(script_options)

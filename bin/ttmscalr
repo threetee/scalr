@@ -198,8 +198,8 @@ Main {
     end
     option 'script' do
       argument :optional
-      description 'Script to execute, defaults to "V2-TTMAppConfigAndLaunch" (should not need to change)'
-      default 'V2-TTMAppConfigAndLaunch'
+      description 'Script to execute, defaults to "TTM-Launcher" (should not need to change)'
+      default 'TTM-Launcher'
     end
     option 'verbose' do
       description 'false (default): display number of servers remaining with every poll; true: display data as we poll'

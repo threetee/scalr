@@ -44,7 +44,7 @@ module Scalr
 
     # retrieve the script that marks the end of a deployment
     def end_of_deployment_script
-      scripting_logs.find {|log_item| log_item.script_name.match(/AppConfigAndLaunch/)}
+      scripting_logs.find {|log_item| log_item.script_name.match(/TTM_Launcher/)}
     end
 
     def scripting_logs
