@@ -248,52 +248,6 @@ Main {
     end
   end
 
-  mode 'deploy:rolling' do
-    description 'Execute a a rolling deploy on all farm servers'
-
-    examples "$ #{script_name} deploy:rolling -f production"
-
-    option 'farm, -f' do
-      argument :required
-      description 'Farm with role or server to reset'
-    end
-
-    option 'script' do
-      description 'Script to execute (defaults to "TTMAppConfigAndLaunch", should not need to change)'
-      default 'V2-TTMAppConfigAndLaunch'
-    end
-
-    option 'timeout' do
-      description 'Timeout in seconds (defaults to 1200)'
-      default '1200'
-    end
-
-    def run
-      puts "Are you SURE you pushed to the AWS #{params['farm'].value} repo?"
-      print "Waiting a few seconds to jog your memory. Ctrl-C if you're not sure! "
-      5.times {sleep(1); print '.'}
-      puts "OK, let's go!"
-
-      options = Scalr::Caller.collect_options(params, [:farm_id, :script_id, :timeout])
-      options[:config_variables] = {my_task: 'RollingDeploy', restart_on_deploy: 'true'}
-
-      roles = fetch_role_for_script(options, 'all')
-      all_servers = roles.flat_map do |role|
-        role.servers_running.each {|server| server.name = "#{Scalr.first_alias('role', role.name)}.#{server.index}"}
-      end
-
-      all_servers.each do |server|
-        script_time = Time.now
-        response = invoke(:script_execute, options.merge(server_id: server.id))
-        puts "Server: #{server.internal_ip} failed to exec script" unless response.code == '200'
-
-        script_poll(servers: [server], script_name: params['script'].value,
-                    script_time: script_time, farm_id: options[:farm_id],
-                    success: 'Update successful', max_polls: 50)
-      end
-    end
-  end
-
   mode 'deploy:recycle' do
     description 'Deploys by launching new servers to replace the current ones.'
 
