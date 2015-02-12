@@ -32,7 +32,7 @@ end
 def generic_error(response)
   return true unless response
   return false if response.success?
-  $stderr.puts("ERROR - #{response.error}]")
+  $stderr.puts("ERROR - #{response.error}")
   true
 end
 
