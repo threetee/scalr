@@ -141,7 +141,6 @@ Main {
       config:get        - Get a farm's configuration key/value pairs, optionally restricting it to one
       config:set        - Assign one or more configuration pairs to a farm
       deploy            - Deploy an application
-      deploy:rolling    - Deploys to one server at a time in the farm.
       deploy:recycle    - Deploys by launching new servers to replace the existing ones. Use with caution due to resource limits. PGSQL, Redis etc...
       deploy:cleanup    - Cleanup a lock left behind by a failed application deploy
       deploy:migrate    - Run a db:migrate for a deployed application on a farm
@@ -162,7 +161,6 @@ Main {
       scp               - Copy a remote file to local machine with SCP
       sftp              - Use SFTP to connect to a server
       ssh               - Use SSH to get a console on a server
-      task              - Get information about a deployment task
       terminate         - Terminate a server (a cure-all for sick dynos)
       shutdown:sidekiq  - Gracefully shuts down sidekiq
   SYN
@@ -483,30 +481,6 @@ Main {
       script_poll(servers: all_servers, script_name: params['script'].value,
                   script_time: script_time, farm_id: options[:farm_id],
                   success: 'Sidekiq shutdown successful', max_polls: 50)
-    end
-  end
-
-  mode 'task' do
-    argument 'task' do
-      description 'ID of deployment task (use "deploy:tasks" + farm and role to lookup)'
-    end
-
-    def run
-      response = dispatch(:dm_deployment_task_get_status, params)
-      return if generic_error(response)
-
-      puts "Status: #{response.content}"
-
-      response = dispatch(:dm_deployment_task_get_log, params)
-      return if generic_error(response)
-
-      if response.total_records == 0
-        puts 'No log records'
-      else
-        response.content.each do |log_item|
-          puts "#{log_item.timestamp_formatted} - #{log_item.message_trimmed}"
-        end
-      end
     end
   end
 
