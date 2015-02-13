@@ -377,7 +377,7 @@ Main {
       end
 
       options = Scalr::Caller.collect_options(params, [:farm_id, :script_id, :timeout])
-      options_string = '-R'
+      options_string = '-lrK'
       options[:config_variables] = {script_options: options_string}
 
       script_time = Time.now
