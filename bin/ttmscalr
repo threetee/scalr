@@ -282,13 +282,14 @@ Main {
     end
     option 'script' do
       argument :optional
-      description 'Script to execute, defaults to "TTMDeployApplication" (should not need to change)'
-      default 'V2-TTMAppConfigAndLaunch'
+      description 'Script to execute, defaults to "TTM-Launcher" (should not need to change)'
+      default 'TTM-Launcher'
     end
 
     def run
       options = Scalr::Caller.collect_options(params, [:farm_id, :script_id])
-      options[:config_variables] = {my_task: 'CleanUp', deployment_key: params['deployment_key'].value}
+      options_string = "-c -k #{params['deployment_key'].value}"
+      options[:config_variables] = {script_options: options_string}
       response = invoke(:script_execute, options)
       return if generic_error(response)
       puts "OK: Executed cleanup on farm #{params['farm'].value}"
