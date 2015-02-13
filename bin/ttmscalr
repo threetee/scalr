@@ -438,8 +438,8 @@ Main {
     end
 
     option 'script' do
-      description 'Script to execute (defaults to "TTMAppConfigAndLaunch", should not need to change)'
-      default 'V2-TTMAppConfigAndLaunch'
+      description 'Script to execute (defaults to "TTM-Launcher", should not need to change)'
+      default 'TTM-Launcher'
     end
 
     option 'timeout' do
@@ -455,7 +455,8 @@ Main {
       end
 
       options = Scalr::Caller.collect_options(params, [:farm_id, :script_id, :timeout])
-      options[:config_variables] = {my_task: 'HaltSidekiq'}
+      options_string = '-S'
+      options[:config_variables] = {script_options: options_string}
 
       script_time = Time.now
       execution_errors = []
