@@ -14,6 +14,7 @@ require 'scalr/deployer'
 require 'scalr/poller'
 require 'scalr/ssher'
 require 'scalr/relauncher'
+require 'scalr/recycler'
 
 def script_name
   File.basename($0)
@@ -311,6 +312,20 @@ Main {
       roles = fetch_role_for_script(options, 'all')
       deployer = Relauncher.new(options[:farm_id], roles)
       deployer.relaunch
+    end
+  end
+
+  mode 'deploy:recycle' do
+    option 'farm, -f' do
+      argument :required
+      description 'Farm to deploy'
+    end
+
+    def run
+      options = Scalr::Caller.collect_options(params, [:farm_id])
+      roles = fetch_role_for_script(options, 'all')
+      deployer = Recycler.new(options[:farm_id], roles)
+      deployer.recycle
     end
   end
 
