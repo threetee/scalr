@@ -61,18 +61,15 @@ class Recycler
   end
 
   def launch_replacements(role)
-    servers_to_launch = @servers.select { |server| server.role == role.name && server.status != :Launched}
-    count = @recycle_increment[role.name.to_sym] > servers_to_launch.length ? servers_to_launch.length : @recycle_increment[role.name.to_sym]
-    (0..(count - 1)).each do |index|
+    servers_to_launch = @servers.select { |server|
+      server.role == role.name && server.status == :Original
+    }.first(@recycle_increment[role.name.to_sym])
+
+    servers_to_launch.each do |server|
       response = perform_launch({farm_id: @farm_id, farm_role_id: role.id, increase_max_instances: true})
       @replacement_servers << ServerInstance.new(response.content, role.name, :New)
-
-      @servers.map! do |server|
-        if server.id == servers_to_launch[index].id
-          ServerInstance.new(server.id, role.name, :Launched)
-        else
-          server
-        end
+      @servers.map! do |s|
+        (s.id == server.id) ? ServerInstance.new(s.id, s.role, :Launched) : s
       end
     end
   end
