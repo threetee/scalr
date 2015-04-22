@@ -38,7 +38,6 @@ class Recycler
     while @servers.length > 0 do
       @roles.each do |role|
         launch_replacements(role)
-        break
       end
 
       monitor_startup
