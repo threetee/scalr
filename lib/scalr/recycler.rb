@@ -92,7 +92,7 @@ class Recycler
     farm_status.each do |role|
       farm_servers = role.servers
       @replacement_servers.map! do |server|
-        fs = farm_servers.first { |s| s.id == server.id }
+        fs = farm_servers.select { |s| s.id == server.id }.first
         puts fs.inspect
         if fs.status == 'Running'
           ServerInstance.new(server.id, server.role, :Up)
