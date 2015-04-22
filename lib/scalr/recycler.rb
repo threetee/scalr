@@ -55,7 +55,7 @@ class Recycler
     @roles_to_recycle.each do |role|
       @roles << Role.new(role.name, role.id)
       role.servers.each do |server|
-        @servers << ServerInstance.new(server.id, role.name)
+        @servers << ServerInstance.new(server.id, role.name) if server.status == 'Running'
       end
     end
   end
