@@ -78,10 +78,7 @@ class Recycler
     while pending
       update_launch_status
       pending_servers = @replacement_servers.select { |s| s.status == :New}
-      puts pending_servers.inspect
-      if pending_servers.length == 0
-        pending = false
-      end
+      pending = false if pending_servers.length == 0
       sleep 10
     end
   end
@@ -89,14 +86,13 @@ class Recycler
   def update_launch_status
     farm_status = get_farm_status
     farm_status.each do |role|
-      farm_servers = role.servers
-      @replacement_servers.map! do |server|
-        fs = farm_servers.select { |s| s.id == server.id }.first
-        puts fs.inspect
-        if fs.status == 'Running'
-          ServerInstance.new(server.id, server.role, :Up)
-        else
-          server
+      role.servers.each do |server|
+        @replacement_servers.map! do |rs|
+          if rs.id == server.id && server.status == 'Running'
+            ServerInstance.new(rs.id, rs.role, :Up)
+          else
+            rs
+          end
         end
       end
     end
