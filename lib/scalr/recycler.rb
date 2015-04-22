@@ -43,7 +43,7 @@ class Recycler
       monitor_startup
 
       @roles.each do |role|
-        #terminate_originals(role)
+        terminate_originals(role)
       end
     end
   end
