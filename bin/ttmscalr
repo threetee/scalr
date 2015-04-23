@@ -13,7 +13,6 @@ require 'scalr/caller'
 require 'scalr/deployer'
 require 'scalr/poller'
 require 'scalr/ssher'
-require 'scalr/relauncher'
 require 'scalr/recycler'
 
 def script_name
@@ -143,7 +142,7 @@ Main {
       config:set        - Assign one or more configuration pairs to a farm
       deploy            - Deploy an application
       deploy:rolling    - Deploys to one server at a time in the farm.
-      deploy:relaunch   - Deploys by launching new servers to replace the existing ones. Use with caution due to resource limits. PGSQL, Redis etc...
+      deploy:recycle    - Deploys by launching new servers to replace the existing ones. Use with caution due to resource limits. PGSQL, Redis etc...
       deploy:cleanup    - Cleanup a lock left behind by a failed application deploy
       deploy:migrate    - Run a db:migrate for a deployed application on a farm
       deploy:tasks      - List deployment tasks
@@ -297,25 +296,11 @@ Main {
     end
   end
 
-  mode 'deploy:relaunch' do
+  mode 'deploy:recycle' do
     description 'Deploys by launching new servers to replace the current ones.'
 
     examples "$ #{script_name} deploy:relaunch -f production"
 
-    option 'farm, -f' do
-      argument :required
-      description 'Farm to deploy'
-    end
-
-    def run
-      options = Scalr::Caller.collect_options(params, [:farm_id])
-      roles = fetch_role_for_script(options, 'all')
-      deployer = Relauncher.new(options[:farm_id], roles)
-      deployer.relaunch
-    end
-  end
-
-  mode 'deploy:recycle' do
     option 'farm, -f' do
       argument :required
       description 'Farm to deploy'
