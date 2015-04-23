@@ -101,10 +101,10 @@ class Recycler
   def terminate_originals(role)
     servers_to_terminate = @servers.select { |server| server.role == role.name && server.status == :Launched}
     servers_to_terminate.each do |server|
-      puts servers_to_terminate[index].inspect
-      perform_terminate({farm_id: @farm_id, server_id: server.id, decrease_min_instances_setting: false})
-      @servers.delete_if do |server|
-        server.id == servers_to_terminate[index].id
+      puts "Terminating #{server.inspect}"
+      perform_terminate({farm_id: @farm_id, server_id: server.id, decrease_min_instances_setting: true})
+      @servers.delete_if do |s|
+        s.id == server.id
       end
     end
   end
