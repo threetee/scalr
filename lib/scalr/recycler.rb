@@ -4,11 +4,12 @@ require 'scalr/check_online_status'
 
 class ServerInstance
   attr_accessor :status
-  attr_reader :id, :role
+  attr_reader :id, :role, :index
 
-  def initialize(id, role, status = :Original)
+  def initialize(id, role, index, status = :Original)
     @id = id
     @role = role
+    @index = index
     @status = status
   end
 end
@@ -54,7 +55,7 @@ class Recycler
     @roles_to_recycle.each do |role|
       @roles << Role.new(role.name, role.id)
       role.servers.each do |server|
-        @servers << ServerInstance.new(server.id, role.name) if server.status == 'Running'
+        @servers << ServerInstance.new(server.id, role.name, server.index) if server.status == 'Running'
       end
     end
   end
@@ -68,7 +69,7 @@ class Recycler
       response = perform_launch({farm_id: @farm_id, farm_role_id: role.id, increase_max_instances: true})
       @replacement_servers << ServerInstance.new(response.content, role.name, :New)
       @servers.map! do |s|
-        (s.id == server.id) ? ServerInstance.new(s.id, s.role, :Launched) : s
+        (s.id == server.id) ? ServerInstance.new(s.id, s.role, s.index, :Launched) : s
       end
     end
   end
@@ -89,7 +90,7 @@ class Recycler
       role.servers.each do |server|
         @replacement_servers.map! do |rs|
           if rs.id == server.id && server.status == 'Running'
-            ServerInstance.new(rs.id, rs.role, :Up)
+            ServerInstance.new(rs.id, rs.role, rs.index, :Up)
           else
             rs
           end
