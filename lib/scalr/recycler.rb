@@ -31,7 +31,7 @@ class Recycler
     @roles = []
     @servers = []
     @replacement_servers = []
-    @recycle_increment = {RailsAppServer: 5, Sidekiq: 2, Reports: 2, Bunchball: 1, DevDebug: 1, SystemWatcher: 1}
+    @recycle_increment = {RailsAppServer: 5, Sidekiq: 2, Reports: 1, Bunchball: 1, DevDebug: 1, SystemWatcher: 1}
   end
 
   def recycle
