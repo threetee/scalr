@@ -40,9 +40,7 @@ class Recycler
       @roles.each do |role|
         launch_replacements(role)
       end
-
       monitor_startup
-
       @roles.each do |role|
         terminate_originals(role)
       end
@@ -67,7 +65,8 @@ class Recycler
 
     servers_to_launch.each do |server|
       response = perform_launch({farm_id: @farm_id, farm_role_id: role.id, increase_max_instances: true})
-      @replacement_servers << ServerInstance.new(response.content, role.name, :New)
+      puts "Launching #{response.content} as a replacement for: #{server.role}-#{server.index}"
+      @replacement_servers << ServerInstance.new(response.content, role.name, -1, :New)
       @servers.map! do |s|
         (s.id == server.id) ? ServerInstance.new(s.id, s.role, s.index, :Launched) : s
       end
@@ -79,6 +78,7 @@ class Recycler
     while pending
       update_launch_status
       pending_servers = @replacement_servers.select { |s| s.status == :New}
+      puts "Waiting for #{pending_servers.length} server(s) to transition to Running."
       pending = false if pending_servers.length == 0
       sleep 10
     end
@@ -102,7 +102,7 @@ class Recycler
   def terminate_originals(role)
     servers_to_terminate = @servers.select { |server| server.role == role.name && server.status == :Launched}
     servers_to_terminate.each do |server|
-      puts "Terminating #{server.inspect}"
+      puts "Terminating #{server.role}-#{server.index}"
       perform_terminate({farm_id: @farm_id, server_id: server.id, decrease_min_instances_setting: true})
       @servers.delete_if do |s|
         s.id == server.id
