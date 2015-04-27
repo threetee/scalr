@@ -145,8 +145,6 @@ Main {
       deploy:recycle    - Deploys by launching new servers to replace the existing ones. Use with caution due to resource limits. PGSQL, Redis etc...
       deploy:cleanup    - Cleanup a lock left behind by a failed application deploy
       deploy:migrate    - Run a db:migrate for a deployed application on a farm
-      deploy:tasks      - List deployment tasks
-      deploy:monitor    - [not done yet!] Monitor an existing deployment
       exterminate       - Good times
       farm              - List roles in a farm
       farm:list         - List farms
@@ -377,65 +375,6 @@ Main {
       script_poll(servers: exec_role.servers_running, script_name: params['script'].value,
                   script_time: script_time, farm_id: options[:farm_id],
                   success: 'Migration complete.', max_polls: 50)
-    end
-  end
-
-  mode 'deploy:monitor' do
-    description 'Monitor a deployment in process (not done yet!)'
-
-    argument 'application' do
-      description 'Application ID/alias to deploy. (Use "application:list" to list.)'
-    end
-    option 'farm, -f' do
-      argument :required
-      description 'Farm to use when resolving role (if aliased)'
-    end
-    option 'task' do
-      argument :required
-      arity -1
-      description 'One or more tasks that are already running'
-    end
-
-    def run
-      options = Scalr::Caller.collect_options(params, [:farm_id, :application_id, :remote_path])
-      deployer = Scalr::Deployer.new(options)
-      deployer.initialize_monitors
-
-      # fetch given tasks and pass them to the deployer,
-      # letting it figure out which monitor each task should go to
-
-      deployer.poll_monitors
-    end
-  end
-
-  mode 'deploy:tasks' do
-    option 'application' do
-      argument :optional
-      description 'ID of application'
-    end
-    option 'farm, -f' do
-      argument :optional
-      description 'Farm to display tasks for'
-    end
-    option 'role, -r' do
-      argument :optional
-      description 'Restrict results to tasks on a particular role in the farm'
-    end
-    option 'server' do
-      argument :optional
-      description 'Restrict results to tasks on a particular server'
-    end
-
-    def run
-      response = dispatch(:dm_deployment_tasks_list, params)
-      return if generic_error(response)
-
-      if response.content.nil? || response.content.empty?
-        puts 'No task records.'
-      else
-        puts Scalr::ResponseObject::DeploymentTaskItem.
-               show_items(response.content).join("\n")
-      end
     end
   end
 
