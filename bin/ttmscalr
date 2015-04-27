@@ -13,6 +13,7 @@ require 'scalr/caller'
 require 'scalr/deployer'
 require 'scalr/poller'
 require 'scalr/ssher'
+require 'scalr/recycler'
 
 def script_name
   File.basename($0)
@@ -86,8 +87,8 @@ def script_poll(options)
   script_time = options[:script_time]
 
   logs = Scalr::Poller.
-      new(options[:farm_id], servers).
-      script_logs(script_name, script_time, options[:max_polls])
+    new(options[:farm_id], servers).
+    script_logs(script_name, script_time, options[:max_polls])
 
   exec_ok = logs.find_all {|log_item| log_item.success?}
   unless exec_ok.empty?
@@ -141,9 +142,9 @@ Main {
       config:set        - Assign one or more configuration pairs to a farm
       deploy            - Deploy an application
       deploy:rolling    - Deploys to one server at a time in the farm.
+      deploy:recycle    - Deploys by launching new servers to replace the existing ones. Use with caution due to resource limits. PGSQL, Redis etc...
       deploy:cleanup    - Cleanup a lock left behind by a failed application deploy
       deploy:migrate    - Run a db:migrate for a deployed application on a farm
-      deploy:tasks      - List deployment tasks
       exterminate       - Good times
       farm              - List roles in a farm
       farm:list         - List farms
@@ -164,7 +165,6 @@ Main {
       task              - Get information about a deployment task
       terminate         - Terminate a server (a cure-all for sick dynos)
       shutdown:sidekiq  - Gracefully shuts down sidekiq
-      deploy:monitor    - [not done yet!] Monitor an existing deployment
   SYN
 
   ########## Deployment
@@ -291,7 +291,24 @@ Main {
                     script_time: script_time, farm_id: options[:farm_id],
                     success: 'Update successful', max_polls: 50)
       end
+    end
+  end
 
+  mode 'deploy:recycle' do
+    description 'Deploys by launching new servers to replace the current ones.'
+
+    examples "$ #{script_name} deploy:relaunch -f production"
+
+    option 'farm, -f' do
+      argument :required
+      description 'Farm to deploy'
+    end
+
+    def run
+      options = Scalr::Caller.collect_options(params, [:farm_id])
+      roles = fetch_role_for_script(options, 'all')
+      deployer = Recycler.new(options[:farm_id], roles)
+      deployer.recycle
     end
   end
 
@@ -361,65 +378,6 @@ Main {
     end
   end
 
-  mode 'deploy:monitor' do
-    description 'Monitor a deployment in process (not done yet!)'
-
-    argument 'application' do
-      description 'Application ID/alias to deploy. (Use "application:list" to list.)'
-    end
-    option 'farm, -f' do
-      argument :required
-      description 'Farm to use when resolving role (if aliased)'
-    end
-    option 'task' do
-      argument :required
-      arity -1
-      description 'One or more tasks that are already running'
-    end
-
-    def run
-      options = Scalr::Caller.collect_options(params, [:farm_id, :application_id, :remote_path])
-      deployer = Scalr::Deployer.new(options)
-      deployer.initialize_monitors
-
-      # fetch given tasks and pass them to the deployer,
-      # letting it figure out which monitor each task should go to
-
-      deployer.poll_monitors
-    end
-  end
-
-  mode 'deploy:tasks' do
-    option 'application' do
-      argument :optional
-      description 'ID of application'
-    end
-    option 'farm, -f' do
-      argument :optional
-      description 'Farm to display tasks for'
-    end
-    option 'role, -r' do
-      argument :optional
-      description 'Restrict results to tasks on a particular role in the farm'
-    end
-    option 'server' do
-      argument :optional
-      description 'Restrict results to tasks on a particular server'
-    end
-
-    def run
-      response = dispatch(:dm_deployment_tasks_list, params)
-      return if generic_error(response)
-
-      if response.content.nil? || response.content.empty?
-        puts 'No task records.'
-      else
-        puts Scalr::ResponseObject::DeploymentTaskItem.
-                 show_items(response.content).join("\n")
-      end
-    end
-  end
-
   mode 'restart' do
     description 'Execute a restart (aka "hard reset") on an individual server or an entire role, without doing a full deploy'
 
@@ -430,7 +388,7 @@ Main {
 
     argument 'target' do
       description 'Role or server to reset; use "all" to reset all non-database roles on a ' +
-                  'farm and {role}.{index} pattern for individual instance.'
+                    'farm and {role}.{index} pattern for individual instance.'
     end
 
     option 'farm, -f' do
@@ -512,7 +470,7 @@ Main {
 
     argument 'target' do
       description 'Role or server to reset; use "all" to reset all non-database roles on a ' +
-                      'farm and {role}.{index} pattern for individual instance.'
+                    'farm and {role}.{index} pattern for individual instance.'
       default 'sidekiq'
     end
 
@@ -664,7 +622,7 @@ Main {
       to_display = display_all ? response.content : response.content.find_all {|log_item| log_item.failure?}
 
       puts Scalr::ResponseObject::ScriptLogItem.
-               show_items(to_display, expand_script, params['quiet'].value).join("\n")
+             show_items(to_display, expand_script, params['quiet'].value).join("\n")
     end
   end
 
@@ -687,7 +645,7 @@ Main {
         puts 'No log records'
       else
         puts Scalr::ResponseObject::LogItem.
-                 show_items(response.content, params['source'].value).join("\n")
+               show_items(response.content, params['source'].value).join("\n")
       end
     end
   end
@@ -782,9 +740,9 @@ Main {
       return if generic_error(application_response) || generic_error(source_response)
 
       sources = Scalr::ResponseObject::SourceItem.
-                    as_hash(source_response.content)
+        as_hash(source_response.content)
       puts Scalr::ResponseObject::Application.
-               show_items(application_response.content, sources).join("\n")
+             show_items(application_response.content, sources).join("\n")
     end
   end
 
@@ -884,7 +842,7 @@ Main {
       options = caller.collect_options(params)
       unless options[:farm_id]
         $stderr.puts "UNKNOWN FARM #{params['farm'].value}. You may need to remove your alias file " +
-                     "(#{Scalr::TTMAliasReader::DEFAULT_ALIAS_FILE}) and retry."
+                       "(#{Scalr::TTMAliasReader::DEFAULT_ALIAS_FILE}) and retry."
         return
       end
 
@@ -963,7 +921,7 @@ Main {
       return if generic_error(response)
 
       puts Scalr::ResponseObject::Script.
-               show_items(response.content).reverse.join("\n")
+             show_items(response.content).reverse.join("\n")
     end
   end
 
@@ -979,7 +937,7 @@ Main {
       return if generic_error(response)
 
       puts Scalr::ResponseObject::ScriptSummary.
-               show_items(response.content, params['display_all'].value).join("\n")
+             show_items(response.content, params['display_all'].value).join("\n")
     end
   end
 
@@ -1243,9 +1201,9 @@ Main {
         end
       else
         similar_pairs = response.content.
-            find_all {|var| var.name_matches?(/^TTM.+URL$/)}.
-            map{|var| var.to_s}.
-            join("\n  ")
+          find_all {|var| var.name_matches?(/^TTM.+URL$/)}.
+          map{|var| var.to_s}.
+          join("\n  ")
         $stderr.puts <<-MISSING.gsub(/^ {10}/, '')
           DB CONFIG NOT FOUND!
 
