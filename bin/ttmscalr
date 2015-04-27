@@ -867,7 +867,7 @@ Main {
     examples "#{script_name} config:set TTM_FRUIT=ORANGE -f review",
              "#{script_name} config:set TTM_TIMEZONE_EXPERT=Carol TTM_REPORT_EXPERT=Greg -f review",
              "#{script_name} config:set my_config.txt -f production"
-    "#{script_name} config:set TTM_ANIMAL=unicorn -f production -r rails"
+             "#{script_name} config:set TTM_ANIMAL=unicorn -f production -r rails"
 
     option 'farm, -f' do
       argument :required
