@@ -1,6 +1,5 @@
 require 'scalr'
 require 'scalr/caller'
-require 'scalr/check_online_status'
 
 class ServerInstance
   attr_accessor :status
