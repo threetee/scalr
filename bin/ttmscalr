@@ -275,9 +275,13 @@ Main {
     argument 'farm, -f' do
       description 'Farm on which you need to cleanup a deploy'
     end
+
     option 'deployment_key, -k' do
+      required
+      argument :required
       description 'Tracking key used for deployment'
     end
+
     option 'script' do
       argument :optional
       description 'Script to execute, defaults to "TTM-Launcher" (should not need to change)'
