@@ -28,3 +28,6 @@ scripts/access_info
 # CMW: IDEA stuff
 .idea/*
 *.iml
+
+# Do not checkin Gemfile.lock for a gem
+Gemfile.lock

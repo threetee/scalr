@@ -52,7 +52,13 @@ module Scalr
                 "19759": ["Solr"],
                 "19175": ["MathJS"],
                 "20464": ["QA"],
-                "20470": ["DW-Staging-QA", "dw-qa"]
+                "20470": ["DW-Staging-QA", "dw-qa"],
+                "20175": ["Live-Teaching-Dev", "lt-dev"],
+                "20988": ["Live-Teaching-Production", "lt-production", "lt-prod"],
+                "20989": ["Live-Teaching-RC", "lt-RC"],
+                "20990": ["Live-Teaching-Lab", "lt-lab"],
+                "20991": ["Live-Teaching-Review", "lt-review"],
+                "20992": ["Live-Teaching-QA", "lt-QA"]
               },
               "role": {
                 "RailsAppServer" : ["rails", "web"],

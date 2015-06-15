@@ -318,16 +318,15 @@ module Scalr
       @inputs.merge!('Action' => @action_info[:name], 'KeyID' => key_id, 'Version' => version, 'Timestamp' => Time.now.utc.iso8601)
       @endpoint = endpoint
       @access_key = access_key
+      set_signature!(key_id)
     end
 
     def process!
-      set_signature!
-
       uri = URI(@endpoint)
       http = Net::HTTP.new(uri.host, uri.port)
       #http.set_debug_output(Scalr.debug)  if Scalr.debug
       http.use_ssl = !uri.scheme.match(/https/i).nil?
-      url = "#{uri.path}?#{query_string}&Signature=#{@signature}"
+      url = "#{uri.path}?#{query_string}&AuthVersion=3&Signature=#{@signature}"
       Scalr.debug.puts(url)  if Scalr.debug
       response = http.get(url, {})
       if Scalr.debug
@@ -390,8 +389,8 @@ module Scalr
         [URI.escape(key.to_s), URI.escape(value.to_s)].join('=')
       end
 
-      def set_signature!
-        string_to_sign = query_string.gsub('=','').gsub('&','')
+      def set_signature!(key_id)
+        string_to_sign = "#{@action_info[:name]}:#{key_id}:#{Time.now.utc.iso8601}"
         hmac = HMAC::SHA256.new(@access_key)
         hmac.update(string_to_sign)
         @signature = URI.escape(Base64.encode64(hmac.digest).chomp, Regexp.new("[^#{URI::PATTERN::UNRESERVED}]"))
