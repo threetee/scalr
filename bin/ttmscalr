@@ -14,6 +14,7 @@ require 'scalr/deployer'
 require 'scalr/poller'
 require 'scalr/ssher'
 require 'scalr/recycler'
+require 'scalr/version'
 
 def script_name
   File.basename($0)
@@ -122,7 +123,12 @@ Main {
   description <<-DESC
     Command-line interface for Scalr, with TTM-specific additions which make it
     look more like the heroku application. See README.md for more.
+    'ttmscalr --version' to see the running version
   DESC
+
+  option 'version' do
+    synopsis '' # This hides the version option from default param help
+  end
 
   option 'debug' do
     description 'Turn on debugging to see the URL and raw response.'
@@ -130,7 +136,11 @@ Main {
   end
 
   def run
-    puts synopsis
+    unless params['version'].values.blank?
+      puts Scalr::VERSION
+    else
+      puts synopsis
+    end
   end
 
   # this replaces the built-in one which just lists all the commands in one long line,
