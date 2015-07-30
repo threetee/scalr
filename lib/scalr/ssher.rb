@@ -17,6 +17,21 @@ module Scalr
       exec command
     end
 
+    def tunnel(tunnel_spec)
+      return unless identify_server
+      return unless check_key_path
+
+      cmd = params.has_key?('cmd') ? params['cmd'].value : 'ssh'
+      command = "#{cmd} -i #{key_path} -L #{tunnel_spec} -N root@#{server.external_ip}"
+      puts "Executing `#{command}`"
+      exec command
+    end
+
+    def open_db_tunnel(db_host)
+      return unless db_host
+      tunnel( "5433:#{db_host}")
+    end
+
     def execute_in_www_dir(remote_command )
       return unless remote_command
       execute("-t \"source /etc/profile.d/TTM.ENV.sh; if [[ -f /etc/profile.d/rvm.sh ]]; then source /etc/profile.d/rvm.sh; fi; cd /var/www; #{remote_command} \"")
