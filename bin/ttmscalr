@@ -163,6 +163,7 @@ Main {
       log:system        - Show system logs
       maintenance       - Change a farm's maintenance status
       psql              - Open a command-line shell to a database
+      psql:tunnel       - Open an ssh tunnel to the database
       rails_console     - Open a command-line console to a rails application
       restart           - Do a hard restart of a role
       run               - Run a command on a server in a farm
@@ -1201,4 +1202,36 @@ Main {
       url_shard(replacement)
     end
   end
+
+  mode 'psql:tunnel' do
+    description <<-DESC
+      Open an SSH tunnel to the Farm's Postgres DB Port.
+      Connect via psql postgress://username:password@localhost:5433/database
+    DESC
+
+    examples "#{script_name} psql:tunnel -f review"
+
+    option 'farm, -f' do
+      argument :required
+      description 'Farm to connect to'
+    end
+
+    def run
+      response = dispatch(:global_variables_list, params)
+      return if generic_error(response)
+
+      db_string = response.content.find{|var| var.name_equals?("TTM_DATABASE_URL")} || response.content.find{|var| var.name_equals?("TTM_WAREHOUSE_DATABASE_URL")}
+      db_conn = db_string.to_s.split("@")
+      db_host = db_conn[1].split("/")[0]
+
+      options = Scalr::Caller.collect_options(params, [:farm_id])
+      exec_role = fetch_role_for_script(options,'debug')
+      role_index = exec_role.first[:servers].first[:index]
+      params['server'] = Value.new("debug.#{role_index}")
+      ssher = Scalr::Ssher.new(params)
+      ssher.open_db_tunnel(db_host)
+      exit_status ssher.exit_status
+    end
+  end
+
 }
