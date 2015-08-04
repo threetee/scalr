@@ -1204,7 +1204,10 @@ Main {
   end
 
   mode 'psql:tunnel' do
-    description 'Open an SSH tunnel to an RDS DB'
+    description <<-DESC
+      Open an SSH tunnel to the Farm's Postgres DB Port.
+      Connect via psql postgress://username:password@localhost:5433/database
+    DESC
 
     examples "#{script_name} psql:tunnel -f review"
 
