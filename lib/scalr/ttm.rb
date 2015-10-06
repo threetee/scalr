@@ -70,7 +70,7 @@ module Scalr
                 "DevDebug"       : ["debug"],
                 "PGSQL-9-2"      : ["pg", "pgsql", "psql"],
                 "DataLoad"       : ["dl", "dataload"],
-                "Jenkins"        : ["JenkinsM", "jenkins", "master"],
+                "Jenkins-Master" : ["JenkinsM", "jenkins", "master"],
                 "JenkinsSlave"   : ["jenkinsslave", "slave"],
                 "lb-nginx64-TTM" : ["lb"],
                 "NodeAppServer"  : ["node"],
