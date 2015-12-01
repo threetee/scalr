@@ -118,10 +118,13 @@ module Scalr
       if response.content.respond_to?(:failure?) && response.content.failure?
         mark_failed
       end
-      changes = response.content.
+      changes = 0
+      unless response.content.nil?
+        changes = response.content.
           find_all {|log_item| log_item.after?(@last_seen)}.
           map {|log_item| add_log(log_item)}.
           inject(0) {|sum, log_added| sum + log_added}
+      end
       @scans_without_change = changes > 0 ? 0 : @scans_without_change + 1
     end
   end
