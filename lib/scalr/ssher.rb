@@ -27,9 +27,9 @@ module Scalr
       exec command
     end
 
-    def open_db_tunnel(db_host)
+    def open_db_tunnel(db_host, port = 5433)
       return unless db_host
-      tunnel( "5433:#{db_host}")
+      tunnel("#{port}:#{db_host}")
     end
 
     def execute_in_www_dir(remote_command )
