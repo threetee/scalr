@@ -1227,15 +1227,22 @@ Main {
       return if generic_error(response)
 
       db_string = response.content.find{|var| var.name_equals?("TTM_DATABASE_URL")} || response.content.find{|var| var.name_equals?("TTM_WAREHOUSE_DATABASE_URL")}
-      db_conn = db_string.to_s.split("@")
-      db_host = db_conn[1].split("/")[0]
+
+      db_conn  = db_string.to_s.split("@")
+      db_creds = db_conn[0].split("postgres://")[1]
+      db_host, db_name = db_conn[1].split("/")
 
       options = Scalr::Caller.collect_options(params, [:farm_id, :port])
+      port    = options[:port]
+
       exec_role = fetch_role_for_script(options,'debug')
       role_index = exec_role.first[:servers].first[:index]
       params['server'] = Value.new("debug.#{role_index}")
+
+      psql_command = "psql postgres://#{db_creds}@localhost:#{port}/#{db_name}"
+
       ssher = Scalr::Ssher.new(params)
-      ssher.open_db_tunnel(db_host, options[:port])
+      ssher.open_db_tunnel(db_host, psql_command, port)
       exit_status ssher.exit_status
     end
   end

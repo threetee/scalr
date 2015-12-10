@@ -17,19 +17,27 @@ module Scalr
       exec command
     end
 
-    def tunnel(tunnel_spec)
+    def tunnel(tunnel_spec, after_command)
       return unless identify_server
       return unless check_key_path
 
       cmd = params.has_key?('cmd') ? params['cmd'].value : 'ssh'
       command = "#{cmd} -i #{key_path} -L #{tunnel_spec} -N root@#{server.external_ip}"
       puts "Executing `#{command}`"
+
+      if after_command
+        puts ""
+        puts "Leave this program running, and run this command in another shell:"
+        puts "#{after_command}"
+        puts ""
+      end
+
       exec command
     end
 
-    def open_db_tunnel(db_host, port = 5433)
+    def open_db_tunnel(db_host, psql_command, port = 5433)
       return unless db_host
-      tunnel("#{port}:#{db_host}")
+      tunnel("#{port}:#{db_host}", psql_command)
     end
 
     def execute_in_www_dir(remote_command )
