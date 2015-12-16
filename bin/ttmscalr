@@ -634,25 +634,43 @@ Main {
   end
 
   mode 'terminate' do
-    description 'Terminate a server'
+    description 'Terminate a server within a role, or (way more rarely) launch a farm'
 
-    examples "$ #{script_name} terminate rails.12 -f production",
-             "$ #{script_name} terminate bunchball.1 -f review"
-
-    argument 'server' do
-      description 'Server alias to terminate (e.g., "rails.1")'
-    end
+    examples "$ #{script_name} terminate -f production -r rails",
+             "$ #{script_name} terminate -f review -r sidekiq"
 
     option 'farm, -f' do
-      argument :required
-      description 'Farm "server" argument is in'
+      argument :optional
+      description 'Farm to launch'
+    end
+
+    option 'role, -r' do
+      argument :optional
+      description 'Farm role to launch'
     end
 
     def run
-      response = dispatch(:server_terminate, params)
+      options = Scalr::Caller.collect_options(params, [:farm_id, :farm_role_id])
+      options[:keep_ebs] = false
+      options[:keep_eip] = false
+      options[:keep_dns_zone] = false
+      action = nil
+      action = :farm_terminate   if options[:farm_id]
+      action = :server_terminate if options[:farm_role_id]
+      if action.nil?
+        raise "Must provide either 'farm' or 'role' to terminate"
+      end
+
+      response = invoke(action, options)
       return if generic_error(response)
-      puts "#{params['server'].value}: #{response.content}"
+
+      if action == :farm_terminate
+        puts "Result: #{response.content}"
+      else
+        puts "Server ID: #{response.content}"
+      end
     end
+
   end
 
   mode 'exterminate' do

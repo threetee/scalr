@@ -172,7 +172,7 @@ module Scalr
       },
       :farm_terminate => {
           :name => 'FarmTerminate', :version => V200,
-          :inputs => {:farm_id => true, :keep_ebs => true, :keep_eip => false, :keep_dns_zone => false},
+          :inputs => {:farm_id => true, :keep_ebs => false, :keep_eip => false, :keep_dns_zone => false},
           :outputs => { :path => 'result' }
       },
       :farms_list => {
