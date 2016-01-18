@@ -1233,7 +1233,7 @@ Main {
       db_host, db_name = db_conn[1].split("/")
 
       options = Scalr::Caller.collect_options(params, [:farm_id, :port])
-      port    = options[:port]
+      port    = options[:port] || 5434
 
       exec_role = fetch_role_for_script(options,'debug')
       role_index = exec_role.first[:servers].first[:index]
