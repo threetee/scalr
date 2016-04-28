@@ -1064,7 +1064,7 @@ Main {
 
     argument 'server' do
       optional
-      description 'Server index to use with role, or "role.index" name (e.g., "rails.2")'
+      description 'Server index to use with role, or "role.index" name (e.g., "rails.2"), or just "role" and we will find an index (e.g., "watcher")'
     end
 
     option 'farm, -f' do
@@ -1079,10 +1079,11 @@ Main {
 
     def run
       options = Scalr::Caller.collect_options(params, [:farm_id])
-      if params['server'].value.nil?
-        exec_role = fetch_role_for_script(options,'debug')
+      role = params['server'].value || 'debug'
+      if !role.match /\w+\.\d/
+        exec_role = fetch_role_for_script(options,role)
         role_index = exec_role.first[:servers].first[:index]
-        params['server'].value = "debug.#{role_index}"
+        params['server'].value = "#{role}.#{role_index}"
       end
 
       command = params['command'].value
