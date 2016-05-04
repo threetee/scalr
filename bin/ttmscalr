@@ -172,7 +172,7 @@ Main {
       scp               - Copy a remote file to local machine with SCP
       sftp              - Use SFTP to connect to a server
       ssh               - Use SSH to get a console on a server
-      terminate         - Terminate a server (a cure-all for sick dynos)
+      terminate         - Terminate a server, all servers in a role or a farm
       shutdown:sidekiq  - Gracefully shuts down sidekiq
   SYN
 
@@ -634,25 +634,78 @@ Main {
   end
 
   mode 'terminate' do
-    description 'Terminate a server'
+    description 'Terminate a server within a role, entire role of a farm'
 
-    examples "$ #{script_name} terminate rails.12 -f production",
-             "$ #{script_name} terminate bunchball.1 -f review"
+    examples "$ #{script_name} terminate -f review",
+             "$ #{script_name} terminate sidekiq -f review"
+             "$ #{script_name} terminate sidekiq.1 -f review"
 
-    argument 'server' do
-      description 'Server alias to terminate (e.g., "rails.1")'
+
+    argument 'target' do
+      argument :optional
+      description 'Server to terminate.'
     end
 
     option 'farm, -f' do
       argument :required
-      description 'Farm "server" argument is in'
+      required true
+      description 'Farm to act on'
+    end
+
+    option 'certain' do
+      description 'I am certain that I want to shutdown the given farm or role'
     end
 
     def run
-      response = dispatch(:server_terminate, params)
+
+      options = Scalr::Caller.collect_options(params, [:farm_id])
+      options[:keep_ebs] = false
+      options[:keep_eip] = false
+      options[:keep_dns_zone] = false
+
+      if params['target'].value.nil?
+        action = :farm_terminate
+      else
+        action = :server_terminate
+      end
+
+      if action == :farm_terminate
+        print "Are You Sure You Want To Terminate #{params['farm'].value.upcase}? (yes to confirm) "
+        if !params['certain'].value && $stdin.gets.downcase !~ /yes/
+          puts '...as you wish. Good day!'
+          Process::exit(1)
+        end
+      end
+
+      if action == :server_terminate
+        target = params['target'].value
+        if target.match(/^\w+\.\d+$/)
+          server = fetch_server_on_farm(params, target)
+          unless server
+            $stderr.puts("Cannot find server #{target} in farm #{params['farm'].value}")
+            return
+          end
+          response = invoke(action, options.merge(server_id: server.id))
+        else
+          roles = fetch_role_for_script(options, target)
+          roles.first.servers.each do |server|
+            response = invoke(action, options.merge(server_id: server.id))
+            puts "Terminated #{server.id}"
+          end
+        end
+      elsif action == :farm_terminate
+        response = invoke(action, options)
+      end
+
       return if generic_error(response)
-      puts "#{params['server'].value}: #{response.content}"
+
+      if action == :farm_terminate
+        puts "Result: #{response.content}"
+      else
+        puts "Server ID: #{response.content}"
+      end
     end
+
   end
 
   mode 'exterminate' do
