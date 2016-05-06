@@ -59,7 +59,10 @@ module Scalr
                 "20989": ["Live-Teaching-RC", "lt-RC"],
                 "20990": ["Live-Teaching-Lab", "lt-lab"],
                 "20991": ["Live-Teaching-Review", "lt-review"],
-                "20992": ["Live-Teaching-QA", "lt-QA"]
+                "20992": ["Live-Teaching-QA", "lt-QA"],
+                "22874": ["Login-Production", "login-prod"],
+                "22875": ["Login-Dev", "login-dev"],
+                "22876": ["Login-RC", "login-rc"]
               },
               "role": {
                 "RailsAppServer" : ["rails", "web"],
