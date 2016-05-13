@@ -106,9 +106,9 @@ module Scalr
 
   # @return true if Scalr API credentials available, false if not
   def self.read_access_info
-    if ENV['SCALR_KEY_ID'] && ENV['SCALR_ACCESS_KEY']
-      Scalr.key_id = ENV['SCALR_KEY_ID']
-      Scalr.access_key = ENV['SCALR_ACCESS_KEY']
+    if ENV['TTM_SCALR_KEY_ID'] && ENV['TTM_SCALR_ACCESS_KEY']
+      Scalr.key_id = ENV['TTM_SCALR_KEY_ID']
+      Scalr.access_key = ENV['TTM_SCALR_ACCESS_KEY']
     elsif access_file = resolve_access_info_file
       values = Scalr.hash_from_file(access_file)
       Scalr.key_id = values[:key_id]
