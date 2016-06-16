@@ -63,6 +63,7 @@ module Scalr
                 "22874": ["Login-Production", "login-prod"],
                 "22875": ["Login-Dev", "login-dev"],
                 "22876": ["Login-RC", "login-rc"],
+                "23115": ["Login-Lab"],
                 "23062": ["Production-SY1617", "sy1617"],
                 "23063": ["Warehouse-SY1617", "dw-sy1617"]
               },
