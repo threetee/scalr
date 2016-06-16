@@ -60,9 +60,9 @@ module Scalr
                 "20990": ["Live-Teaching-Lab", "lt-lab"],
                 "20991": ["Live-Teaching-Review", "lt-review"],
                 "20992": ["Live-Teaching-QA", "lt-QA"],
-                "22874": ["Login-Production", "login-prod"],
-                "22875": ["Login-Dev", "login-dev"],
-                "22876": ["Login-RC", "login-rc"],
+                "22874": ["Login-Production"],
+                "22875": ["Login-Dev"],
+                "22876": ["Login-RC"],
                 "23115": ["Login-Lab"],
                 "23062": ["Production-SY1617", "sy1617"],
                 "23063": ["Warehouse-SY1617", "dw-sy1617"]
