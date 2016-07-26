@@ -50,6 +50,7 @@ module Scalr
                 "20278": ["DW-Staging-Dev", "dw-dev"],
                 "15898": ["Dev"],
                 "15944": ["Jenkins"],
+                "21876": ["TTM-Jenkins"],
                 "19759": ["Solr"],
                 "19175": ["MathJS"],
                 "20464": ["QA"],
@@ -78,6 +79,7 @@ module Scalr
                 "DataLoad"       : ["dl", "dataload"],
                 "Jenkins-Master" : ["JenkinsM", "jenkins", "master"],
                 "JenkinsSlave"   : ["jenkinsslave", "slave"],
+                "JenkinsMinion"  : ["jenkinsminion","minion"],
                 "lb-nginx64-TTM" : ["lb"],
                 "NodeAppServer"  : ["node"],
                 "Solr"           : ["solr"]
