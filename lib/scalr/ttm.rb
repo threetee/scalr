@@ -65,8 +65,7 @@ module Scalr
                 "22875": ["Login-Dev"],
                 "22876": ["Login-RC"],
                 "23115": ["Login-Lab"],
-                "23062": ["Production-SY1617", "sy1617"],
-                "23063": ["Warehouse-SY1617", "dw-sy1617"]
+                "23063": ["Warehouse-SY1516", "dw-sy1516"]
               },
               "role": {
                 "RailsAppServer" : ["rails", "web"],
