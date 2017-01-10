@@ -38,7 +38,7 @@ For a more permanent solution you might have in your `~/.bashrc` or
 You need to tell Scalr your API credentials so you can exercise the API.
 Don't have these? Go get them -- Andre can create an account for you,
 and once you login click on your profile in the upper-right and choose
-'API Access' the click in the link of message "Click here if you're looking 
+'API Access' then click in the link of message "Click here if you're looking 
 for first generation API access credentials.", click in checkbox "Enable API access for 
 «your_email»", copy API Key ID and API Access Key.
 
