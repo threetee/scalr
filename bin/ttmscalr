@@ -1,0 +1,1304 @@
+#!/usr/bin/env ruby
+
+require 'pathname'
+bin_path = Pathname.new(__FILE__).realpath
+$:.unshift File.expand_path('../../lib', bin_path)
+
+require 'date'
+require 'json'
+require 'main'
+require 'scalr'
+require 'scalr/ttm'
+require 'scalr/caller'
+require 'scalr/deployer'
+require 'scalr/poller'
+require 'scalr/ssher'
+require 'scalr/recycler'
+require 'scalr/version'
+
+def script_name
+  File.basename($0)
+end
+
+unless Scalr.read_access_info
+  puts <<-CONF
+  CONFIGURATION ERROR: You do not have available Scalr access credentials. Please
+  read 'Scalr API credentials' in #{bin_path.dirname}/README.md.
+
+  Called with: #{script_name} #{ARGV.join(' ')}
+  CONF
+  Process::exit(1)
+end
+
+def generic_error(response)
+  return true unless response
+  return false if response.success?
+  $stderr.puts("ERROR - #{response.error}")
+  true
+end
+
+def logging_options(main)
+  main.option 'farm, -f' do
+    argument :required
+    description 'Farm with logs'
+  end
+  main.option 'server' do
+    argument :optional
+    description 'Server to restrict logs from'
+  end
+  main.option 'start' do
+    argument :optional
+    cast :int
+    description 'Log count to start with'
+  end
+  main.option 'limit' do
+    argument :optional
+    cast :int
+    description 'Log entries to fetch'
+  end
+end
+
+# fetch the role(s) we'll execute in so we can count servers + resolve server IDs
+def fetch_role_for_script(options, role_specification = nil)
+  role_response = invoke(:farm_get_details, farm_id: options[:farm_id])
+  roles = []
+  if role_specification.nil? && options[:farm_role_id]
+    roles << Scalr::ResponseObject::FarmRole.by_id(role_response.content, options[:farm_role_id])
+  elsif role_specification.nil?
+    raise 'Cannot fetch role(s) for script execution, no role provided in specification or options.'
+  elsif role_specification.strip == 'all'
+    roles = role_response.content.reject {|role| role.name.match(/(PGSQL|lb\-nginx)/)}
+  else
+    resolved_role = Scalr.match_alias('role', role_specification)
+    roles << role_response.content.detect {|role| role.name.downcase == resolved_role}
+  end
+  roles.compact!
+  raise 'Cannot determine role script executes in - weird!' if roles.empty?
+  roles
+end
+
+def fetch_server_on_farm(params, server_spec)
+  role_response = dispatch(:farm_get_details, params)
+  Scalr::ResponseObject::FarmRole.single_server(role_response.content, server_spec)
+end
+
+def script_poll(options)
+  servers = options[:servers] || options[:role].servers_running
+  script_name = options[:script_name].gsub("-","_")
+  script_time = options[:script_time]
+
+  logs = Scalr::Poller.
+    new(options[:farm_id], servers).
+    script_logs(script_name, script_time, options[:max_polls])
+
+  exec_ok = logs.find_all {|log_item| log_item.success?}
+  unless exec_ok.empty?
+    puts "OK - #{options[:success]} (#{exec_ok.length} of #{servers.length} servers)"
+  end
+  return if exec_ok.length == logs.length
+
+  exec_fail = logs.find_all {|log_item| log_item.failure?}
+  puts "FAIL (#{exec_fail.length} of #{logs.length} servers)."
+  exec_fail.each do |log_item|
+    server = servers.find {|server| server.id == log_item.server_id}
+    server_name = options[:role_name] ? server.name(options[:role_name]) : server.name
+    puts "#{server_name} => exit code: #{log_item.exit_code}"
+    puts log_item.message, "\n"
+  end
+end
+
+def dispatch(action_name, params)
+  Scalr::Caller.new(action_name).dispatch(params)
+end
+
+def invoke(action_name, options = {})
+  Scalr::Caller.new(action_name).invoke(options)
+end
+
+# implementation notes:
+# - Main seems to dispatch on mode-names in first-match order. So you'll need
+#   to have a mode 'deploy' before a mode 'deploy:log', otherwise it will never
+#   get invoked. So least-specific modes should be before most-specific.
+Main {
+  description <<-DESC
+    Command-line interface for Scalr, with TTM-specific additions which make it
+    look more like the heroku application. See README.md for more.
+    'ttmscalr --version' to see the running version
+  DESC
+
+  option 'version' do
+    synopsis '' # This hides the version option from default param help
+  end
+
+  option 'debug' do
+    description 'Turn on debugging to see the URL and raw response.'
+    validate {|value| Scalr.debug = $stderr if value; true} # sneaky use of validate, sorry...
+  end
+
+  def run
+    unless params['version'].values.blank?
+      puts Scalr::VERSION
+    else
+      puts synopsis
+    end
+  end
+
+  # this replaces the built-in one which just lists all the commands in one long line,
+  # but has the downside requiring manual updates when you add new modes
+  synopsis <<-SYN.gsub(/^ {4}/, '')
+    Available commands, use 'ttmscalr <command> --help' for more:
+      application:list  - List available applications
+      config:get        - Get a farm's configuration key/value pairs, optionally restricting it to one
+      config:set        - Assign one or more configuration pairs to a farm
+      deploy            - Deploy an application
+      deploy:recycle    - Deploys by launching new servers to replace the existing ones. Use with caution due to resource limits. PGSQL, Redis etc...
+      deploy:cleanup    - Cleanup a lock left behind by a failed application deploy
+      deploy:migrate    - Run a db:migrate for a deployed application on a farm
+      exterminate       - Good times
+      farm              - List roles in a farm
+      farm:list         - List farms
+      farm:server       - Find out on which role a server lives within a farm
+      launch            - Launch a server within a farm
+      log:script        - Show script logs
+      log:system        - Show system logs
+      maintenance       - Change a farm's maintenance status
+      psql              - Open a command-line shell to a database
+      psql:tunnel       - Open an ssh tunnel to the database
+      rails_console     - Open a command-line console to a rails application
+      restart           - Do a hard restart of a role
+      run               - Run a command on a server in a farm
+      script            - Get details about a script (mostly version history)
+      script:list       - List available scripts
+      scp               - Copy a remote file to local machine with SCP
+      sftp              - Use SFTP to connect to a server
+      ssh               - Use SSH to get a console on a server
+      terminate         - Terminate a server, all servers in a role or a farm
+      shutdown:sidekiq  - Gracefully shuts down sidekiq
+  SYN
+
+  ########## Deployment
+
+  mode 'deploy' do
+    description <<-DESC
+      Deploy an application to all non-DB roles within a farm. Non-verbose output will show
+      you the number of servers remaining to finish deployment.
+    DESC
+
+    examples "$ #{script_name} deploy production",
+             "$ #{script_name} deploy lesson-player -f lab",
+             "$ #{script_name} deploy review -k keepcalmandre"
+
+    argument 'application_name' do
+      description "Application we will deploy; this typically also maps to the farm name but you can specify it for special cases (e.g., 'lesson_player')"
+    end
+    option 'farm, -f' do
+      argument :optional
+      description 'Farm we will deploy to if different from application'
+    end
+    option 'certain' do
+      description 'true: Yes, I am certain that I have pushed to the appropriate repo; false (default): No, I am not certain and need to be reminded.'
+    end
+    option 'hard' do
+      description 'false (default): do graceful restart on deploy, true: do hard restart on deploy'
+    end
+    option 'deployment_key, -k' do
+      argument :optional
+      description 'Deployment tracking key, defaults to generated UUID'
+    end
+    option 'script' do
+      argument :optional
+      description 'Script to execute, defaults to "TTM-Launcher" (should not need to change)'
+      default 'TTM-Launcher'
+    end
+    option 'verbose' do
+      description 'false (default): display number of servers remaining with every poll; true: display data as we poll'
+      default false
+    end
+
+    def run
+      assign_application_from_farm = false
+      if params['farm'].given?
+        puts "Deploying application #{params['application_name'].value} to farm #{params['farm'].value}"
+      else
+        params['farm'].value = params['application_name'].value
+        assign_application_from_farm = true
+        puts "Deploying application #{params['application_name'].value}"
+      end
+
+      unless params['certain'].value
+        puts "Are you SURE you pushed to the AWS #{params['farm'].value} repo?"
+        print "Waiting a few seconds to jog your memory. Ctrl-C if you're not sure! "
+        5.times {sleep(1); print '.'}
+        puts "OK, let's go!"
+      end
+
+      options = Scalr::Caller.collect_options(params, [:application_name, :farm_id, :script_id, :hard])
+
+      if assign_application_from_farm
+        response = invoke(:farms_list)
+        return if generic_error(response)
+        matching_farm = response.content.find {|summary| options[:farm_id].to_i == summary.id.to_i}
+        unless matching_farm
+          puts "Failed to match farm with ID #{options[:farm_id]} from #{response.content.inspect}"
+          return
+        end
+        options[:application_name] = matching_farm.name
+      end
+
+      options[:verbose]        = params['verbose'].value
+      options[:deployment_key] = params['deployment_key'].value
+      options[:new_deploy]     = true
+      deployer = Scalr::Deployer.new(options)
+
+      puts 'Cleanup command if things go wrong:',
+           "  $ #{File.basename($0)} deploy:cleanup #{params['farm'].value} -k #{deployer.deployment_key}"
+
+      deployer.execute
+    end
+  end
+
+  mode 'deploy:recycle' do
+    description 'Deploys by launching new servers to replace the current ones.'
+
+    examples "$ #{script_name} deploy:relaunch -f production"
+
+    option 'farm, -f' do
+      argument :required
+      description 'Farm to deploy'
+    end
+
+    def run
+      options = Scalr::Caller.collect_options(params, [:farm_id])
+      roles = fetch_role_for_script(options, 'all')
+      deployer = Recycler.new(options[:farm_id], roles)
+      deployer.recycle
+    end
+  end
+
+  mode 'deploy:cleanup' do
+    description <<-DESC
+      Cleanup a failed application deploy
+    DESC
+
+    examples "$ #{script_name} deploy:cleanup production -k keepcalmandre",
+             "$ #{script_name} deploy:cleanup review -k 437992a8-6ece-4bdb-88d3-a375dd845d6e"
+
+    argument 'farm, -f' do
+      description 'Farm on which you need to cleanup a deploy'
+    end
+
+    option 'deployment_key, -k' do
+      required
+      argument :required
+      description 'Tracking key used for deployment'
+    end
+
+    option 'script' do
+      argument :optional
+      description 'Script to execute, defaults to "TTM-Launcher" (should not need to change)'
+      default 'TTM-Launcher'
+    end
+
+    def run
+      options = Scalr::Caller.collect_options(params, [:farm_id, :script_id])
+      options_string = "-c -k #{params['deployment_key'].value}"
+      options[:config_variables] = {script_options: options_string}
+      response = invoke(:script_execute, options)
+      return if generic_error(response)
+      puts "OK: Executed cleanup on farm #{params['farm'].value}"
+    end
+  end
+
+  mode 'deploy:migrate' do
+    description 'Run db:migrate on the given farm'
+
+    argument 'farm, -f' do
+      description 'Farm to run db:migrate on'
+    end
+    option 'role, -r' do
+      argument :optional
+      description 'Specific role we will run migration on, defaults to "watcher"'
+      default 'watcher'
+    end
+    option 'script' do
+      argument :optional
+      description 'Script to execute, defaults to "TTMScheduledJobsMaster" (should not need to change)'
+      default 'TTMScheduledJobsMaster'
+    end
+    option 'timeout' do
+      argument :optional
+      description 'Override the timeout, defaults to 1200 seconds'
+      default '1200'
+    end
+
+    def run
+      options = Scalr::Caller.collect_options(params, [:farm_id, :farm_role_id, :script_id, :timeout])
+      exec_role = fetch_role_for_script(options).first
+      options[:config_variables] = {my_task: 'db_migrate'}
+      script_time = Time.now
+      response = invoke(:script_execute, options)
+      return if generic_error(response)
+
+      puts 'Script executed; polling for logs...'
+      script_poll(servers: exec_role.servers_running, script_name: params['script'].value,
+                  script_time: script_time, farm_id: options[:farm_id],
+                  success: 'Migration complete.', max_polls: 50)
+    end
+  end
+
+  mode 'restart' do
+    description 'Execute a restart (aka "hard reset") on an individual server or an entire role, without doing a full deploy'
+
+    examples "$ #{script_name} restart rails.2 -f production",
+             "$ #{script_name} restart rails -f production",
+             "$ #{script_name} restart all -f review",
+             "$ #{script_name} restart all -f review --certain"
+
+    argument 'target' do
+      description 'Role or server to reset; use "all" to reset all non-database roles on a ' +
+                    'farm and {role}.{index} pattern for individual instance.'
+    end
+
+    option 'farm, -f' do
+      argument :required
+      description 'Farm with role or server to reset'
+    end
+
+    option 'certain' do
+      description 'true: Yes, I am certain that I want to restart; false (default): ask me if I REALLY want to restart.'
+    end
+
+    option 'server, -s' do
+      description "These are not the droids you're looking for"
+    end
+
+    option 'script' do
+      description 'Script to execute (defaults to "TTM-Launcher", should not need to change)'
+      default 'TTM-Launcher'
+    end
+
+    option 'timeout' do
+      description 'Timeout in seconds (defaults to 1200)'
+      default '1200'
+    end
+
+    def run
+      print 'ARE YOU SURE YOU WANT TO RESTART SERVICES? (yes to confirm) '
+      if !params['certain'].value && $stdin.gets.downcase !~ /yes/
+        puts '...as you wish. Good day!'
+        Process::exit(1)
+      end
+
+      options = Scalr::Caller.collect_options(params, [:farm_id, :script_id, :timeout])
+      options_string = '-lrK'
+      options[:config_variables] = {script_options: options_string}
+
+      script_time = Time.now
+      execution_errors = []
+
+      target = params['target'].value
+      if target.match(/^\w+\.\d+$/)
+        server = fetch_server_on_farm(params, target)
+        unless server
+          $stderr.puts("Cannot find server #{target} in farm #{params['farm'].value}")
+          return
+        end
+        response = invoke(:script_execute, options.merge(server_id: server.id))
+        return if generic_error(response)
+        all_servers = [server]
+      else
+        roles = fetch_role_for_script(options, target)
+        print "Executing reset for #{roles.length == 1 ? 'role' : 'roles'}: "
+        puts roles.map {|role|
+          alias_or_name = Scalr.first_alias('role', role.name) || role.name
+          " #{alias_or_name} (ID: #{role.id})"
+        }.join(', ')
+        roles.each do |role|
+          response = invoke(:script_execute, options.merge(farm_role_id: role.id))
+          execution_errors << role if generic_error(response)
+        end
+
+        all_servers = roles.flat_map do |role|
+          role.servers_running.each {|server| server.name = "#{Scalr.first_alias('role', role.name)}.#{server.index}"}
+        end
+      end
+
+      server_count = all_servers.length == 1 ? 'a server' : "#{all_servers.length} servers"
+      puts "Script executed... polling for logs from #{server_count}."
+      script_poll(servers: all_servers, script_name: params['script'].value,
+                  script_time: script_time, farm_id: options[:farm_id],
+                  success: 'Hard reset successful', max_polls: 50)
+    end
+  end
+
+  mode 'shutdown:sidekiq' do
+    description 'Send the terminate signal to sidekiq roles on a farm and wait for completion'
+
+    examples "$ #{script_name} shutdown:sidekiq -f dw-production"
+    examples "$ #{script_name} shutdown:sidekiq -f dw-production --certain"
+
+    argument 'target' do
+      description 'Role or server to reset; use "all" to reset all non-database roles on a ' +
+                    'farm and {role}.{index} pattern for individual instance.'
+      default 'sidekiq'
+    end
+
+    option 'farm, -f' do
+      argument :required
+      description 'Farm with role or server to reset'
+    end
+
+    option 'certain' do
+      description 'true: Yes, I am certain that I want to shutdown sidekiq; false (default): ask me if I REALLY want to shutdown sidekiq'
+    end
+
+    option 'script' do
+      description 'Script to execute (defaults to "TTM-Launcher", should not need to change)'
+      default 'TTM-Launcher'
+    end
+
+    option 'timeout' do
+      description 'Timeout in seconds (defaults to 1200)'
+      default '1200'
+    end
+
+    def run
+      print 'ARE YOU SURE YOU WANT TO SHUTDOWN SIDEKIQ? (yes to confirm) '
+      if !params['certain'].value && $stdin.gets.downcase !~ /yes/
+        puts '...as you wish. Good day!'
+        Process::exit(1)
+      end
+
+      options = Scalr::Caller.collect_options(params, [:farm_id, :script_id, :timeout])
+      options_string = '-S'
+      options[:config_variables] = {script_options: options_string}
+
+      script_time = Time.now
+      execution_errors = []
+
+      target = params['target'].value
+      roles = fetch_role_for_script(options, target)
+      print "Executing shutdown for #{roles.length == 1 ? 'role' : 'roles'}: "
+      puts roles.map {|role|
+        alias_or_name = Scalr.first_alias('role', role.name) || role.name
+        " #{alias_or_name} (ID: #{role.id})"
+      }.join(', ')
+      roles.each do |role|
+        response = invoke(:script_execute, options.merge(farm_role_id: role.id))
+        execution_errors << role if generic_error(response)
+      end
+
+      all_servers = roles.flat_map do |role|
+        role.servers_running.each {|server| server.name = "#{Scalr.first_alias('role', role.name)}.#{server.index}"}
+      end
+
+      server_count = all_servers.length == 1 ? 'a server' : "#{all_servers.length} servers"
+      puts "Script executed... polling for logs from #{server_count}."
+      script_poll(servers: all_servers, script_name: params['script'].value,
+                  script_time: script_time, farm_id: options[:farm_id],
+                  success: 'Sidekiq shutdown successful', max_polls: 50)
+    end
+  end
+
+  mode 'maintenance' do
+    description 'Turn maintenance mode on or off'
+
+    examples "$ #{script_name} maintenance on -f prod",
+             "$ #{script_name} maintenance off -f review"
+
+    argument 'mode' do
+      description 'Either "on" or "off" to enable/disable maintenance mode'
+      validate {|mode| mode.match(/^(on|off)$/)}
+    end
+    option 'farm, -f' do
+      argument :required
+      description 'Farm we will put into maintenance mode'
+    end
+    option 'role, -r' do
+      argument :optional
+      description 'Specific role we will put into maintenance, defaults to "rails"'
+      default 'rails'
+    end
+    option 'script' do
+      argument :optional
+      description 'Script to execute, defaults to "TTMMaintenanceMode" (should not need to change)'
+      default 'TTMMaintenanceMode'
+    end
+
+    def run
+      options = Scalr::Caller.collect_options(params, [:farm_id, :farm_role_id, :script_id])
+      exec_role = fetch_role_for_script(options).first
+      options[:config_variables] = {on_or_off: params['mode'].value}
+      script_time = Time.now
+      response = invoke(:script_execute, options)
+      return if generic_error(response)
+
+      puts "Script executed... polling for logs from #{exec_role.servers_running.length} servers."
+      script_poll(servers: exec_role.servers_running, role_name: params['role'].value, script_name: params['script'].value,
+                  script_time: script_time, farm_id: options[:farm_id],
+                  success: "Maintenance: #{params['mode'].value}")
+    end
+  end
+
+  mode 'log:script' do
+    logging_options(self)
+
+    option 'role, -r' do
+      argument :optional
+    end
+    option 'expand' do
+      argument :optional
+      description 'Display full messages generated by this script only'
+    end
+    option 'quiet' do
+      description 'false (default) display failures and "expand"-triggered messages, true means only display status for all'
+    end
+    option 'verbose' do
+      description 'false (default) means only display failures, true means display all'
+    end
+
+    def run
+      response = dispatch(:script_logs_list, params)
+      return if generic_error(response)
+
+      expand_script = params['expand'].given? ? params['expand'].value : nil
+
+      display_all = params['verbose'].value
+      puts "Script logs -- displaying #{display_all ? 'all records' : 'only failures'}", "\n"
+      to_display = display_all ? response.content : response.content.find_all {|log_item| log_item.failure?}
+
+      puts Scalr::ResponseObject::ScriptLogItem.
+             show_items(to_display, expand_script, params['quiet'].value).join("\n")
+    end
+  end
+
+  mode 'log:system' do
+    logging_options(self)
+
+    option 'source' do
+      argument :optional
+      default 'all'
+      description 'Only display logs matching this source (default: all logs)'
+    end
+
+    # TODO: add option for quieting/verbosing log messages?
+
+    def run
+      response = dispatch(:logs_list, params)
+      return if generic_error(response)
+
+      if response.total_records == 0
+        puts 'No log records'
+      else
+        puts Scalr::ResponseObject::LogItem.
+               show_items(response.content, params['source'].value).join("\n")
+      end
+    end
+  end
+
+  mode 'launch' do
+    description 'Launch a server within a role, or (way more rarely) launch a farm'
+
+    examples "$ #{script_name} launch -f production -r rails",
+             "$ #{script_name} launch -f review -r sidekiq"
+
+    option 'farm, -f' do
+      argument :optional
+      description 'Farm to launch'
+    end
+
+    option 'role, -r' do
+      argument :optional
+      description 'Farm role to launch'
+    end
+
+    def run
+      options = Scalr::Caller.collect_options(params, [:farm_id, :farm_role_id])
+      action = nil
+      action = :farm_launch   if options[:farm_id]
+      action = :server_launch if options[:farm_role_id]
+      if action.nil?
+        raise "Must provide either 'farm' or 'role' to launch"
+      end
+
+      response = invoke(action, options)
+      return if generic_error(response)
+
+      if action == :farm_launch
+        puts "Result: #{response.content}"
+      else
+        puts "Server ID: #{response.content}"
+      end
+    end
+
+  end
+
+  mode 'terminate' do
+    description 'Terminate a server within a role, entire role of a farm'
+
+    examples "$ #{script_name} terminate -f review",
+             "$ #{script_name} terminate sidekiq -f review"
+             "$ #{script_name} terminate sidekiq.1 -f review"
+
+
+    argument 'target' do
+      argument :optional
+      description 'Server to terminate.'
+    end
+
+    option 'farm, -f' do
+      argument :required
+      required true
+      description 'Farm to act on'
+    end
+
+    option 'certain' do
+      description 'I am certain that I want to shutdown the given farm or role'
+    end
+
+    def run
+
+      options = Scalr::Caller.collect_options(params, [:farm_id])
+      options[:keep_ebs] = false
+      options[:keep_eip] = false
+      options[:keep_dns_zone] = false
+
+      if params['target'].value.nil?
+        action = :farm_terminate
+      else
+        action = :server_terminate
+      end
+
+      if action == :farm_terminate
+        print "Are You Sure You Want To Terminate #{params['farm'].value.upcase}? (yes to confirm) "
+        if !params['certain'].value && $stdin.gets.downcase !~ /yes/
+          puts '...as you wish. Good day!'
+          Process::exit(1)
+        end
+      end
+
+      if action == :server_terminate
+        target = params['target'].value
+        if target.match(/^\w+\.\d+$/)
+          server = fetch_server_on_farm(params, target)
+          unless server
+            $stderr.puts("Cannot find server #{target} in farm #{params['farm'].value}")
+            return
+          end
+          response = invoke(action, options.merge(server_id: server.id))
+        else
+          roles = fetch_role_for_script(options, target)
+          roles.first.servers.each do |server|
+            response = invoke(action, options.merge(server_id: server.id))
+            puts "Terminated #{server.id}"
+          end
+        end
+      elsif action == :farm_terminate
+        response = invoke(action, options)
+      end
+
+      return if generic_error(response)
+
+      if action == :farm_terminate
+        puts "Result: #{response.content}"
+      else
+        puts "Server ID: #{response.content}"
+      end
+    end
+
+  end
+
+  mode 'exterminate' do
+    description 'Nothing bad will happen if you run this, honest.'
+
+    def run
+      puts <<-DALEK.gsub(/^ {6}/, '')
+                 EX-TER-MIN-ATE!
+                   /
+              ___ /
+      D>=G==='   '.
+            |======|
+            |======|
+        )--/]IIIIII]
+           |_______|
+           C O O O D
+          C O  O  O D
+         C  O  O  O  D
+         C__O__O__O__D
+        [_____________]
+      DALEK
+    end
+  end
+
+  mode 'application:list' do
+    description 'List available applications and their sources'
+
+    def run
+      application_response = invoke(:dm_applications_list)
+      source_response = invoke(:dm_sources_list)
+      return if generic_error(application_response) || generic_error(source_response)
+
+      sources = Scalr::ResponseObject::SourceItem.
+        as_hash(source_response.content)
+      puts Scalr::ResponseObject::Application.
+             show_items(application_response.content, sources).join("\n")
+    end
+  end
+
+  mode 'farm' do
+    description 'Details about roles and other data within a farm'
+
+    examples "$ #{script_name} farm production"
+
+    argument 'farm' do
+      argument :required
+      description 'Farm ID/alias to fetch details for'
+    end
+
+    def run
+      response = dispatch(:farm_get_details, params)
+      return if generic_error(response)
+
+      farm_id = response.request_inputs['FarmID']
+      aliases = Scalr.aliases('farm', farm_id.to_s)
+
+      puts "FARM: #{farm_id} (aliases: #{aliases.empty? ? 'N/A' : aliases.join(', ')})"
+      puts '========================================'
+      puts response.content.map {|farm_role| farm_role.for_display}.join("\n")
+    end
+  end
+
+  mode 'farm:server' do
+    description 'Find out on which role a server lives within a farm'
+
+    argument 'server' do
+      description 'Server to find (must be GUID)'
+      argument :required
+    end
+
+    option 'farm, -f' do
+      description 'Farm containing server'
+      argument :required
+    end
+
+    def run
+      response = dispatch(:farm_get_details, params)
+      return if generic_error(response)
+
+      server_role = response.content.find do |role|
+        role.servers.any? {|server| params['server'].value == server.id}
+      end
+      if server_role.nil?
+        puts 'Cannot find server in farm.'
+      else
+        aliases = Scalr.aliases('role', server_role.name)
+        puts "Role: #{server_role.name} (ID: #{server_role.id}) (aliases: #{aliases.empty? ? 'N/A' : aliases.join(', ')})"
+      end
+    end
+
+  end
+
+  mode 'farm:list' do
+    description 'List summary of all farms'
+
+    def run
+      response = invoke(:farms_list)
+      return if generic_error(response)
+      puts Scalr::ResponseObject::FarmSummary.show_items(response.content).join("\n")
+    end
+  end
+
+  mode 'config:get' do
+    description <<-CONFIG.gsub(/^\s+/, '')
+      Retrieve all configuration variables for a farm as key-value pairs,
+      or fetch a single variable as a string suitable for shell-inclusion.
+    CONFIG
+
+    examples "#{script_name} config:get -f review",
+             "#{script_name} config:get TTM_SHARD_ONE_URL -f production",
+             "#{script_name} config:get TTM_SIDEKIQ_CONCURRENCY -f production -r sidekiq"
+
+    option 'farm, -f' do
+      argument :required
+      description 'Farm to get configuration from'
+    end
+
+    option 'role, -r' do
+      argument :optional
+      description 'Role within the farm from which we will get configuration'
+    end
+
+    argument 'key' do
+      argument :optional
+      description <<-KEY.gsub(/^\s+/, '')
+        Optional name of config key for which you want only the value;
+        if not given we'll display all keys and values
+      KEY
+    end
+
+    def run
+      caller = Scalr::Caller.new(:global_variables_list)
+      options = caller.collect_options(params)
+      unless options[:farm_id]
+        $stderr.puts "UNKNOWN FARM #{params['farm'].value}. You may need to remove your alias file " +
+                       "(#{Scalr::TTMAliasReader::DEFAULT_ALIAS_FILE}) and retry."
+        return
+      end
+
+      response = caller.invoke(options)
+      return if generic_error(response)
+
+      if response.content.nil? || response.content.empty?
+        puts 'NO CONFIG FOUND'
+      elsif matching_key = params['key'].value
+        found = response.content.detect {|pair| pair.name_equals?(matching_key)}
+        print found.value if found
+      else
+        puts Scalr::ResponseObject::Variable.show_items(response.content).join("\n")
+      end
+    end
+
+  end
+
+  mode 'config:set' do
+    description 'Assign a key/value configuration pair to a farm or role'
+
+    examples "#{script_name} config:set TTM_FRUIT=ORANGE -f review",
+             "#{script_name} config:set TTM_TIMEZONE_EXPERT=Carol TTM_REPORT_EXPERT=Greg -f review",
+             "#{script_name} config:set my_config.txt -f production"
+             "#{script_name} config:set TTM_ANIMAL=unicorn -f production -r rails"
+
+    option 'farm, -f' do
+      argument :required
+      description "Farm to which we'll assign configuration"
+    end
+
+    option 'role, -r' do
+      argument :optional
+      description "Role within the farm to which we'll assign configuration"
+    end
+
+    argument 'pair' do
+      arity -1
+      description <<-PAIRS.gsub(/^\s+/, '')
+        One or more key=value pairs for assignment; example: TTM_HEADPHONES=sennheiser. May also pass
+        a filename of key/value pairs, one per line -- for example, output of 'config:get' works fine.
+      PAIRS
+    end
+
+    def run
+      options = Scalr::Caller.collect_options(params, [:farm_id, :farm_role_id])
+      pairs = Scalr::ResponseObject::Variable.read(params['pair'].values)
+      if pairs.empty?
+        raise 'Must provide at least one key=value pair'
+      end
+      pairs.each do |pair|
+        if pair.name_matches?(/^TTM/)
+          response = invoke(:global_variable_set, options.merge(param_name: pair.name, param_value: pair.value))
+          if response.success?
+            puts "OK #{pair.to_s}"
+          else
+            puts "FAIL #{pair.to_s} => #{response.error}"
+          end
+        else
+          puts "SKIP #{pair.to_s} - name does not start with 'TTM'"
+        end
+      end
+    end
+  end
+
+  mode 'script' do
+    description 'Display details about a script'
+
+    option 'script' do
+      argument :required
+      description 'ID of script to display'
+    end
+
+    def run
+      response = dispatch(:script_get_details, params)
+      return if generic_error(response)
+
+      puts Scalr::ResponseObject::Script.
+             show_items(response.content).reverse.join("\n")
+    end
+  end
+
+  mode 'script:list' do
+    description 'Display available scripts'
+
+    option 'display_all' do
+      description 'true if you want to display all scripts, false to display only TTM scripts'
+    end
+
+    def run
+      response = dispatch(:scripts_list, params)
+      return if generic_error(response)
+
+      puts Scalr::ResponseObject::ScriptSummary.
+             show_items(response.content, params['display_all'].value).join("\n")
+    end
+  end
+
+
+  mode 'scp' do
+    description 'Brings a file from a remote server to your local machine via scp'
+
+    examples "#{script_name} scp rails.1 -f review --remote /var/www/foo.txt",
+             "#{script_name} scp sidekiq.2 -f production --remote /var/www/foo.txt --local 20131104-foo.txt",
+             "#{script_name} scp debug.1 -f production --out --remote /var/www/public --local '*.html'"
+
+    argument 'server' do
+      description 'Server index to use with role, or "role.index" name (e.g., "rails.2")'
+    end
+
+    option 'farm, -f' do
+      argument :required
+      description 'Farm containing role + server'
+    end
+
+    option 'role, -r' do
+      argument :optional
+      description 'Role with server, required unless using role name with "server" arg'
+    end
+
+    option 'remote, -t' do
+      argument :required
+      description 'Remote path to download, or remote directory/file to write'
+    end
+
+    option 'local, -l' do
+      argument :optional
+      description <<-DESC
+        If bringing file IN: path to file to write on local machine
+        (will infer from -p if not given); we will refuse to run if
+        this already exists.
+
+        If sending file(s) OUT: path or glob to files in local machine
+        to send to the server. NOTE: if you use a glob you'll need to
+        put it in single quotes. (See examples.)
+      DESC
+    end
+
+    option 'out' do
+      description 'Push the file out to the server instead of pulling the file in from the server (default)'
+    end
+
+    def run
+      remote = params['remote'].value
+      unless remote
+        $stderr.puts('Required argument: --remote (-t) with path to remote file/dir')
+        exit_status 1
+        return
+      end
+      ssher = Scalr::Ssher.new(params)
+
+      if params['out'].value
+        local = file_or_glob(params['local'].value)
+        unless local
+          $stderr.puts("Required argument: --local (-l) file must exist if you're sending file out (given: #{params['local'].value})")
+          exit_status 1
+          return
+        end
+        ssher.execute_scp_out(local, remote)
+      else
+        local = params['local'].given? ? params['local'].value : File.basename(remote)
+        if File.exists?(local)
+          $stderr.puts("Local file already exists: #{local}")
+          exit_status 1
+          return
+        end
+        ssher.execute_scp_in(remote, local)
+      end
+
+      exit_status ssher.exit_status
+    end
+
+    def file_or_glob(path)
+      if path && (path.match(/\*/) || File.exists?(path))
+        path
+      else
+        nil
+      end
+    end
+  end
+
+  mode 'ssh' do
+    description 'Generate SSH command to connect to a specific server within a farm and role.'
+
+    examples "#{script_name} ssh rails.1 -f review",
+             "#{script_name} ssh sidekiq.2 -f production",
+             "#{script_name} ssh 12 -f production -r rails"
+
+    argument 'server' do
+      description 'Server index to use with role, or "role.index" name (e.g., "rails.2")'
+    end
+
+    option 'farm, -f' do
+      argument :required
+      description 'Farm containing role + server'
+    end
+
+    option 'role, -r' do
+      argument :optional
+      description 'Role with server, required unless using role name with "server" arg'
+    end
+
+    def run
+      ssher = Scalr::Ssher.new(params)
+      ssher.execute
+      exit_status ssher.exit_status
+    end
+  end
+
+  mode 'sftp' do
+    description 'Generate SFTP command to connect to a specific server within a farm and role.'
+
+    examples "#{script_name} sftp rails.1 -f review",
+             "#{script_name} sftp sidekiq.2 -f production",
+             "#{script_name} sftp 12 -f production -r rails"
+
+    argument 'server' do
+      description 'Server index to use with role, or "role.index" name (e.g., "rails.2")'
+    end
+
+    option 'farm, -f' do
+      argument :required
+      description 'Farm containing role + server'
+    end
+
+    option 'role, -r' do
+      argument :optional
+      description 'Role with server, required unless using role name with "server" arg'
+    end
+
+    def run
+      params['cmd'] = Value.new('sftp')
+      ssher = Scalr::Ssher.new(params)
+      ssher.execute
+      exit_status ssher.exit_status
+    end
+  end
+
+  class Value
+    attr_reader :value
+
+    def initialize(val)
+      @value = val
+    end
+  end
+
+  mode 'rails_console' do
+    description 'Generate SSH command to execute a rails console on a farm.'
+
+    examples "#{script_name} rails_console -f review"
+
+    option 'farm, -f' do
+      argument :required
+      description 'Farm containing role + server'
+    end
+
+    def run
+      options = Scalr::Caller.collect_options(params, [:farm_id])
+      exec_role = fetch_role_for_script(options,'debug')
+      role_index = exec_role.first[:servers].first[:index]
+      params['server'] = Value.new("debug.#{role_index}")
+      ssher = Scalr::Ssher.new(params)
+      ssher.execute_in_www_dir("rails console")
+      exit_status ssher.exit_status
+    end
+  end
+
+  mode 'run' do
+    description 'Generate SSH command to execute any command on a devDebug server for a farm.'
+
+    examples "#{script_name} run -f review -c \"rails console\",
+              #{script_name} run sidekiq.1 -f review -c \"rails console\""
+
+    argument 'server' do
+      optional
+      description 'Server index to use with role, or "role.index" name (e.g., "rails.2"), or just "role" and we will find an index (e.g., "watcher")'
+    end
+
+    option 'farm, -f' do
+      argument :required
+      description 'Farm containing role + server'
+    end
+
+    option 'command, -c' do
+      argument :required
+      description 'Command to execute on the remote server'
+    end
+
+    def run
+      options = Scalr::Caller.collect_options(params, [:farm_id])
+      role = params['server'].value || 'debug'
+      if !role.match /\w+\.\d/
+        exec_role = fetch_role_for_script(options,role)
+        role_index = exec_role.first[:servers].first[:index]
+        params['server'].value = "#{role}.#{role_index}"
+      end
+
+      command = params['command'].value
+      ssher = Scalr::Ssher.new(params)
+      ssher.execute_in_www_dir(command)
+      exit_status ssher.exit_status
+    end
+  end
+
+  mode 'psql' do
+    description 'Connect to a Scalr database via psql command line.'
+
+    examples "$ #{script_name} psql master -f production",
+             "$ #{script_name} psql enrollments -f production",
+             "$ #{script_name} psql one -f production",
+             "$ #{script_name} psql master:slave -f production",
+             "$ #{script_name} psql four -f production --url",
+             "$ #{script_name} psql 1 -f production --dump > pg.dump"
+
+    argument 'db' do
+      arity 1
+      description <<-DESC
+        Database descriptor, one of: master, enrollments, (still using shards: 1, 2, 3, 4, one, two, three, four),
+        warehouse, etl; default: master; you can also append ":slave" to get to that database's slave
+      DESC
+      default 'master'
+    end
+
+    option 'farm, -f' do
+      argument :required
+      description 'Farm with database configurations'
+    end
+
+    option 'url' do
+      description 'true if you want to output a URL, false (default) to include "psql" in the output'
+    end
+
+    option 'dump' do
+      description 'true if you want to take a database backup. The output will go to STDOUT, so you probably want to pipe this to a file.'
+    end
+
+    def run
+      response = dispatch(:global_variables_list, params)
+      return if generic_error(response)
+
+      db_spec, is_slave = params['db'].value.split(':', 2)
+      key = db_key(db_spec)
+
+      pair = response.content.find{|var| var.name_equals?(key)}
+      if pair
+        external_url = scrub_database_url(pair.value, is_slave)
+        if params['url'].value
+          print external_url
+        elsif params['dump'].value
+          command =  "pg_dump --no-password --clean --no-owner --format c #{external_url}"
+          puts "Executing `#{command}`"
+          exec command
+        else
+          command =  "psql #{external_url}"
+          puts "Executing `#{command}`"
+          exec command
+        end
+      else
+        similar_pairs = response.content.
+          find_all {|var| var.name_matches?(/^TTM.+URL$/)}.
+          map{|var| var.to_s}.
+          join("\n  ")
+        $stderr.puts <<-MISSING.gsub(/^ {10}/, '')
+          DB CONFIG NOT FOUND!
+
+          No such DB config key exists [Tried: #{key}]. If you're looking for a shard
+          connection use one of 1..4 or 'one'..'four' as the shard identifier.
+
+          Similar config keys from your farm:
+            #{similar_pairs}
+        MISSING
+      end
+    end
+
+    def scrub_database_url(url, is_slave = false)
+      scrubbed = url.gsub(/@int\./, '@ext.')
+      if is_slave
+        scrubbed.gsub(/\.master\./, '.slave.')
+      else
+        scrubbed
+      end
+    end
+
+    def url_enrollments
+      'TTM_DATABASE_ENROLLMENTS_URL'
+    end
+
+    def url_etl
+      'TTM_ETL_DATABASE_URL'
+    end
+
+    def url_master
+      'TTM_DATABASE_URL'
+    end
+
+    def url_shard(shard)
+      "TTM_SHARD_#{shard}_URL"
+    end
+
+    def url_warehouse
+      'TTM_WAREHOUSE_DATABASE_URL'
+    end
+
+    def db_key(db)
+      words = %w(ONE TWO THREE FOUR)
+      return url_enrollments if db == 'enrollments'
+      return url_master      if db == 'master'
+      return url_warehouse   if db == 'warehouse'
+      return url_etl         if db == 'etl'
+      shard_count = db.to_i
+      replacement = (1..4).include?(shard_count) ? words[shard_count - 1] : db.upcase
+      url_shard(replacement)
+    end
+  end
+
+  mode 'psql:tunnel' do
+    description <<-DESC
+      Open an SSH tunnel to the Farm's Postgres DB Port.
+      Connect via psql postgress://username:password@localhost:5433/database
+    DESC
+
+    examples "#{script_name} psql:tunnel -f review"
+
+    option 'farm, -f' do
+      argument :required
+      description 'Farm to connect to'
+    end
+
+    option 'port, -p' do
+      argument :optional
+      cast :int
+      description 'Local port to host the tunnel'
+    end
+
+    def run
+      response = dispatch(:global_variables_list, params)
+      return if generic_error(response)
+
+      db_string = response.content.find{|var| var.name_equals?("TTM_DATABASE_URL")} || response.content.find{|var| var.name_equals?("TTM_WAREHOUSE_DATABASE_URL")}
+
+      db_conn  = db_string.to_s.split("@")
+      db_creds = db_conn[0].split("postgres://")[1]
+      db_host, db_name = db_conn[1].split("/")
+
+      options = Scalr::Caller.collect_options(params, [:farm_id, :port])
+      port    = options[:port] || 5434
+
+      exec_role = fetch_role_for_script(options,'debug')
+      role_index = exec_role.first[:servers].first[:index]
+      params['server'] = Value.new("debug.#{role_index}")
+
+      psql_command = "psql postgres://#{db_creds}@localhost:#{port}/#{db_name}"
+
+      ssher = Scalr::Ssher.new(params)
+      ssher.open_db_tunnel(db_host, psql_command, port)
+      exit_status ssher.exit_status
+    end
+  end
+
+}
