@@ -23,16 +23,20 @@ module Scalr
 
       cmd = params.has_key?('cmd') ? params['cmd'].value : 'ssh'
       command = "#{cmd} -i #{key_path} -L #{tunnel_spec} -N root@#{server.external_ip}"
-      puts "Executing `#{command}`"
 
-      if after_command
-        puts ""
-        puts "Leave this program running, and run this command in another shell:"
-        puts "#{after_command}"
-        puts ""
+      require 'open3'
+
+      puts "Executing `#{command}` in background"
+
+      Open3.popen2(command) do |_stdin, _stdout, wait_thr|
+        if after_command
+          sleep ENV.fetch("SCALR_TUNNEL_WAIT", 3).to_i # give ssh a chance to open
+
+          puts "Executing `#{after_command}` in foreground`"
+          system after_command
+          Process.kill("TERM", wait_thr.pid)
+        end
       end
-
-      exec command
     end
 
     def open_db_tunnel(db_host, psql_command, port = 5433)
