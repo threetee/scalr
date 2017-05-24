@@ -1,19 +1,19 @@
-# ttmscalr - a command-line tool for working with Scalr
+# ttmscalr - Manage Imagine Math infrastructure through this Scalr-based command-line tool
 
 ## Installing + Configuring
 
 * Clone `git@github.com:thinkthroughmath/scalr.git`
-* Add `scalr/bin` dir to your `PATH` as in __Add to PATH__ below
+* Add the `scalr/bin` directory to your `PATH` environment variable (see: [Add to Path](#add-to-path))
 * Install dependencies:
   * `gem install main`
-  * you'll also need `activesupport` and `ruby-hmac`, but if you're in
-  your apangea gem environment you'll likely already have these. if
-  you use rvm gemsets, you'll need to install these gems in the
-  gemsets in which you'd like to use ttmscalr)
+  * `activesupport` and `ruby-hmac` are also required. However, if running from
+  inside an Apangea gem environment, you'll likely already have these.
+  Note: If you use rvm gemsets, you'll need to install these gems in the
+  gemsets in which you'd like to use ttmscalr.
 * Build and install the scalr gem:
   * `gem build scalr.gemspec`
   * `gem install ./scalr-0.2.3.gem`
-* Get and configure API credentials as in __Scalr API credentials__ below
+* Get and configure API credentials (see: [Scalr API Credentials](#scalr-api-credentials))
 * Now you should be able to run `ttmscalr farm:list`
 
 ### Add to PATH
@@ -33,14 +33,20 @@ For a more permanent solution you might have in your `~/.bashrc` or
 
     export PATH=~/bin:$SCALR_HOME/bin:$NODE_HOME/bin
 
-### Scalr API credentials
+### Scalr API Credentials
 
-You need to tell Scalr your API credentials so you can exercise the API.
-Don't have these? Go get them -- Andre can create an account for you,
-and once you login click on your profile in the upper-right and choose
-'API Access' then click in the link of message "Click here if you're looking 
-for first generation API access credentials.", click in checkbox "Enable API access for 
-«your_email»", copy API Key ID and API Access Key.
+You need to tell Scalr your API credentials in order to use this tool effectively.
+Don't have these? An Imagine Math Scalr administrator can create an account for you.
+
+Follow these steps to obtain and set your keys:
+  1. Log in to: https://my.scalr.com
+  1. Click on your profile in the upper-right corner of the page
+  1. Choose 'API Access'
+  1. Click the link of the message "Click here if you're looking
+for first generation API access credentials."
+  1. Click in checkbox "Enable API access for
+«your_email»"
+  1. Copy API Key ID and API Access Key.
 
 You can tell Scalr your credentials in one of two ways:
 
@@ -78,7 +84,7 @@ If you want to see the URL and response content:
 
 ## Quick intro
 
-Once you've installed test it out by listing some resources:
+Once you've installed, you can test it out by listing some resources:
 
     $ ttmscalr farm:list
     You do not currently have a file for scalr aliases.
@@ -93,7 +99,7 @@ Once you've installed test it out by listing some resources:
     15360 - Production-DB-Shard4 - RUNNING - aliases: prod-db-shard4, shard4
     15548 - DW-Production        - TERMINATED - aliases: N/A
 
-The message about missing aliases always happens with the first command you run.
+Note: The message about missing aliases always happens with the first command you run.
 See more about them below.
 
 You can get details about a farm:
@@ -153,8 +159,11 @@ You can get details about a farm:
            #2 - Terminated   - Uptime 40.03 - Instance: m3.2xlarge; Availability: us-east-1a
            #2 - Initializing - Uptime  6.17 - Instance: m3.2xlarge; Availability: us-east-1a
 
-To see what's going on with one of the servers you can SSH directly in. Run
-a command to do so and the tool will tell you how to get the private key:
+To access one of the servers, you can SSH directly in. You cannot access a server until
+you've downloaded and setup the farm's private key. Steps are provided the first time you
+try to connect to a farm.
+
+For example:
 
     $ ttmscalr ssh debug.1 -f review
 
@@ -173,10 +182,10 @@ a command to do so and the tool will tell you how to get the private key:
 ### Run a rake task
 
 Most farms have a `debug` role for this purpose. It has the same code
-as the others but doesn't run any active services. So to run a rake
-task on the 'production' farm do:
+as the others but doesn't run any active services. To run a rake
+task on the 'review' farm, do:
 
-    $ ttmscalr ssh debug.1 -f production
+    $ ttmscalr ssh debug.1 -f review
     # cd /var/www
     # bundle exec rake mytask
 
@@ -214,16 +223,16 @@ For example:
       ttmscalr ssh sidekiq.2 -f production
       ttmscalr ssh 12 -f production -r rails
 
-The parameter description tells you (in a slightly obscure manner) whether it's
-required or not.
+The parameter description tells you whether it's required or optional.
 
 ### Aliasing Scalr resources
 
-Many parameters you specify are identified by numeric ID in Scalr. But that's
-not friendly to us humans so we alias them for you. And you can control these
-aliases -- the first time you run a command with ttmscalr we'll generate a JSON
-file with default aliases, but you can change this and alias the 'Review' farm
-to 'Zoidberg' if you want by changing this line:
+Many parameters are identified by numeric ID in Scalr. But that's
+not friendly to us humans, so we alias them for you. You can control these
+aliases (the first time you run a command with ttmscalr we'll generate a JSON
+file with default aliases), by making changes to the alias file.
+
+For example, to add 'Zoidberg' as an alias for the 'Review' farm, change this line:
 
     "15275": [ "Review", "ttm-review", "ttm-staging" ],
 
@@ -231,7 +240,7 @@ to this:
 
     "15275": [ "Review", "ttm-review", "ttm-staging", "Zoidberg" ],
 
-It may happen that we add new aliases. To include them you can either:
+We add new aliases. To include them you can either:
 
 * delete the file (`~/.ttm_scalr_aliases.json`) and the next time you
   run the script it'll regenerate the alias file for you, or
@@ -245,6 +254,8 @@ It may happen that we add new aliases. To include them you can either:
 
 Deploys a Scalr application to all non-database roles on a farm.
 
+Note: We typically will use https://github.com/thinkthroughmath/mathbot for most standard deploys.
+
 ### Command: config:get
 
 Retrieve configuration for a farm. If you pass in a key you'll get just
@@ -255,13 +266,18 @@ that value back so you can use it in a shell.
 Assign configuration as key/value pairs to a farm. You can do multiple at
 once, or you can read from a file.
 
+Note: Environment variable changes require a farm restart. A deploy will
+perform a necessary restart or we can implement a rolling restart (where all
+servers in a farm are restarted one at a time, to ensure that the application
+is always "up").
+
 ### Command: maintenance
 
 Turn maintenance mode on or off.
 
 ### Command: launch
 
-Launch one a server within a farm. Unfortunately you can do one at a time.
+Launch a server within a farm. Unfortunately you can only do one at a time.
 (You can also launch a farm with this, but you'll almost never have to do this.)
 
 ### Command: terminate
@@ -271,6 +287,9 @@ Kill a server; if scalr thinks it should spin another up to compensate it will.
 ### Command: psql
 
 Generate a psql command that will connect you to one of the databases.
+
+Note: You may need to "tunnel" this command if you are not launching the command
+from a "trusted" (Scalr administrator approved) network.
 
 ### Command: ssh
 
@@ -308,7 +327,7 @@ own scaling algorithm (grow by n or %, min/max, etc). Each __role__
 has a number of __servers__ which actually run the code.
 
 There's one difference with Heroku related to the database
-servers. Each functional database (master, shard 1, etc.)  is deployed
+servers. Each functional database (master, shard 1, etc.) is deployed
 to its own __farm__ as a result of how Scalr's Postgres support
 works. But all TTM __roles__ have access to all the databases through
 configuration.
@@ -390,102 +409,6 @@ Tasks to accomplish:
 ### psql
 
 ### ssh
-
-## Heroku commands
-
-We'd like to be able to replicate everything we actually used with
-heroku. Here's a list of all its commands:
-
-    cwinters@abita:~/Projects/TTM/apangea$ heroku --help
-    Usage: heroku COMMAND [--app APP] [command-specific-options]
-
-    Primary help topics, type "heroku help TOPIC" for more details:
-
-      addons    #  manage addon resources
-      apps      #  manage apps (create, destroy)
-      auth      #  authentication (login, logout)
-      config    #  manage app config vars
-      domains   #  manage custom domains
-      logs      #  display logs for an app
-      ps        #  manage processes (dynos, workers)
-      releases  #  manage app releases
-      run       #  run one-off commands (console, rake)
-      sharing   #  manage collaborators on an app
-
-    Additional topics:
-
-      account      #  manage heroku account options
-      certs        #  manage ssl endpoints for an app
-      db           #  manage the database for an app
-      drains       #  display syslog drains for an app
-      fork         #  clone an existing app
-      git          #  manage git for apps
-      help         #  list commands and display help
-      keys         #  manage authentication keys
-      labs         #  manage optional features
-      maintenance  #  manage maintenance mode for an app
-      pg           #  manage heroku-postgresql databases
-      pgbackups    #  manage backups of heroku postgresql databases
-      plugins      #  manage plugins to the heroku gem
-      stack        #  manage the stack for an app
-      status       #  check status of heroku platform
-      update       #  update the heroku client
-      version      #  display version
-
-Of these we'll probably implement things in this order:
-
-__config__
-
-    cwinters@abita:~/Projects/TTM/apangea$ heroku config --help
-    Usage: heroku config
-
-     display the config vars for an app
-
-     -s, --shell  # output config vars in shell format
-
-    Examples:
-
-     $ heroku config
-     A: one
-     B: two
-
-     $ heroku config --shell
-     A=one
-     B=two
-
-    Additional commands, type "heroku help COMMAND" for more details:
-
-      config:get KEY                            #  display a config value for an app
-      config:set KEY1=VALUE1 [KEY2=VALUE2 ...]  #  set one or more config vars
-      config:unset KEY1 [KEY2 ...]              #  unset one or more config vars
-
-__ps__
-
-    cwinters@abita:~/Projects/TTM/apangea$ heroku ps --help
-    Usage: heroku ps
-
-     list processes for an app
-
-    Example:
-
-     $ heroku ps
-     === run: one-off processes
-     run.1: up for 5m: `bash`
-
-     === web: `bundle exec thin start -p $PORT`
-     web.1: created for 30s
-
-    Additional commands, type "heroku help COMMAND" for more details:
-
-      ps:restart [PROCESS]                              #  restart an app process
-      ps:scale PROCESS1=AMOUNT1 [PROCESS2=AMOUNT2 ...]  #  scale processes by the given amount
-      ps:stop PROCESS                                   #  stop an app process
-
-
-Plus some additional functionality:
-
-* deploy
-* psql (like pg:psql? just output shell command for it?)
 
 ## Also: api_check
 
