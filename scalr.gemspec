@@ -3,64 +3,29 @@
 # Instead, edit Jeweler::Tasks in Rakefile, and run the gemspec command
 # -*- encoding: utf-8 -*-
 
+# -*- encoding: utf-8 -*-
+lib = File.expand_path('../lib/', __FILE__)
+$:.unshift lib unless $:.include?(lib)
+
+require "scalr/version"
+
 Gem::Specification.new do |s|
-  s.name = %q{scalr}
-  s.version = "0.2.0"
+  s.name        = "scalr"
+  s.version     = Scalr::VERSION
+  s.platform    = Gem::Platform::RUBY
+  s.authors     = ["Matt Hodgson"]
+  s.email       = ["mhodgson@redbeard-tech.com"]
+  s.homepage    = "http://github.com/redbeard-tech/mongoid-sphinx"
+  s.summary     = "A Scalr API wrapper gem"
+  s.description = "Scalr is a cloud infrastructure management provider. This gem is for interfacing with the Scalr.net API to obtain information about your instances and farms."
 
-  s.required_rubygems_version = Gem::Requirement.new(">= 0") if s.respond_to? :required_rubygems_version=
-  s.authors = ["Matt Hodgson"]
-  s.date = %q{2010-10-12}
-  s.description = %q{Scalr is a cloud infrastructure management provider. This gem is for interfacing with the Scalr.net API to obtain information about your instances and farms.}
-  s.email = %q{mhodgson@youcastr.com}
-  s.extra_rdoc_files = [
-    "LICENSE",
-     "README.rdoc"
-  ]
-  s.files = [
-    ".document",
-     ".gitignore",
-     "Gemfile",
-     "Gemfile.lock",
-     "LICENSE",
-     "README.rdoc",
-     "Rakefile",
-     "VERSION",
-     "lib/scalr.rb",
-     "lib/scalr/core_extensions/hash.rb",
-     "lib/scalr/core_extensions/http.rb",
-     "lib/scalr/request.rb",
-     "lib/scalr/response.rb",
-     "scalr.gemspec",
-     "test/helper.rb",
-     "test/test_scalr.rb"
-  ]
-  s.homepage = %q{http://github.com/mhodgson/scalr}
-  s.rdoc_options = ["--charset=UTF-8"]
-  s.require_paths = ["lib"]
-  s.rubygems_version = %q{1.3.7}
-  s.summary = %q{A Scalr API wrapper gem}
-  s.test_files = [
-    "test/helper.rb",
-     "test/test_scalr.rb"
-  ]
+  s.required_rubygems_version = ">= 1.3.7"
+  s.executables      = ["ttmscalr"]
 
-  if s.respond_to? :specification_version then
-    current_version = Gem::Specification::CURRENT_SPECIFICATION_VERSION
-    s.specification_version = 3
+  s.add_dependency("activesupport", [">= 0"])
+  s.add_dependency('main', ['>= 5.2.0'])
+  s.add_dependency('ruby-hmac', ['>= 0'])
 
-    if Gem::Version.new(Gem::VERSION) >= Gem::Version.new('1.2.0') then
-      s.add_development_dependency(%q<thoughtbot-shoulda>, [">= 0"])
-      s.add_runtime_dependency(%q<activesupport>, [">= 0"])
-      s.add_runtime_dependency(%q<ruby-hmac>, [">= 0.4.0"])
-    else
-      s.add_dependency(%q<thoughtbot-shoulda>, [">= 0"])
-      s.add_dependency(%q<activesupport>, [">= 0"])
-      s.add_dependency(%q<ruby-hmac>, [">= 0.4.0"])
-    end
-  else
-    s.add_dependency(%q<thoughtbot-shoulda>, [">= 0"])
-    s.add_dependency(%q<activesupport>, [">= 0"])
-    s.add_dependency(%q<ruby-hmac>, [">= 0.4.0"])
-  end
+  s.files        = Dir.glob("bin/**/*") + Dir.glob("lib/**/*") + %w(README.markdown)
+  s.require_path = 'lib'
 end
-
